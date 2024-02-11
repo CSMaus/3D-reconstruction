@@ -57,6 +57,17 @@ while cap.isOpened():
                 bottom_lip = face_landmarks.landmark[14].y
                 mouth_gap = np.abs(top_lip - bottom_lip)
 
+                left_eye_top = face_landmarks.landmark[159].y
+                left_eye_bottom = face_landmarks.landmark[145].y
+                right_eye_top = face_landmarks.landmark[386].y
+                right_eye_bottom = face_landmarks.landmark[374].y
+
+                left_eye_closed = np.abs(left_eye_top - left_eye_bottom) < 0.003
+                right_eye_closed = np.abs(right_eye_top - right_eye_bottom) < 0.003
+
+                if left_eye_closed and right_eye_closed:
+                    print("Blink detected.")
+
                 if mouth_gap < 0.002:
                     print("Please, unfreeze")
 
@@ -65,6 +76,21 @@ while cap.isOpened():
                     # print(f"Mouth movement detected: {'Open' if mouth_open else 'Closed'}")
 
         prev_time = time.time()
+
+    mesh_results = face_mesh.process(img_rgb)
+    if mesh_results.multi_face_landmarks:
+        for face_landmarks in mesh_results.multi_face_landmarks:
+
+            left_eye_top = face_landmarks.landmark[159].y
+            left_eye_bottom = face_landmarks.landmark[145].y
+            right_eye_top = face_landmarks.landmark[386].y
+            right_eye_bottom = face_landmarks.landmark[374].y
+
+            left_eye_closed = np.abs(left_eye_top - left_eye_bottom) < 0.003
+            right_eye_closed = np.abs(right_eye_top - right_eye_bottom) < 0.003
+
+            if left_eye_closed and right_eye_closed:
+                print("Blink detected.")
 
     cv2.imshow('Frame', frame)
 
