@@ -32,7 +32,7 @@ while cap.isOpened():
             face = cv2.resize(face, (224, 224))
 
             input_face = np.reshape(face, (1, 224, 224, 3))
-            print(np.shape(face))
+            # print(np.shape(face))
             emotion_predictions = emotion_model.predict(input_face)
             dominant_emotion = Emotion.labels[np.argmax(emotion_predictions)]
 
