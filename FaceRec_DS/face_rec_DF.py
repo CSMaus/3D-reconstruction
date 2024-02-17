@@ -5,7 +5,7 @@ import pandas as pd
 from deepface.models.FacialRecognition import FacialRecognition
 import numpy as np
 
-# okay, so here is better to use mediapipe for face detection and taing it from image,
+# okay, so here is better to use mediapipe for face detection and taking it from image,
 # and then use DeepFace for age, gender, emotions
 
 # this part of defining emotions will be used later for AI twin

@@ -20,14 +20,21 @@ cap = cv2.VideoCapture(0)
 
 prev_time = time.time()
 mouth_open = False
+firstrun = True
 
 while cap.isOpened():
+    start_fd = time.time()
     ret, frame = cap.read()
     if not ret:
         break
 
-    img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = face_detection.process(img_rgb)
+    current_time = time.time()
+    if current_time - prev_time >= 0.5:
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_detection.process(img_rgb)
+        prev_time = current_time
+    # end_fd = time.time()
+    # print(f"Face Detection Time: {end_fd - start_fd} seconds")
 
     if results.detections:
         for detection in results.detections:
@@ -39,6 +46,7 @@ while cap.isOpened():
             face_locations = [(y, x + w, y + h, x)]
             face_encodings = face_recognition.face_encodings(img_rgb, known_face_locations=face_locations)
 
+            # start_fr = time.time()
             if face_encodings:
                 matches = face_recognition.compare_faces(known_face_encodings, face_encodings[0], tolerance=0.6)
                 name = "Unknown"
@@ -49,7 +57,13 @@ while cap.isOpened():
 
                 cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
+            # end_fr = time.time()
+            # print(f"Face Recognition Time: {end_fr - start_fr} seconds")
+
+    # leave it for later, now need to upgrade speed
+    '''
     if time.time() - prev_time > 3:
+        # start_fl = time.time()
         mesh_results = face_mesh.process(img_rgb)
         if mesh_results.multi_face_landmarks:
             for face_landmarks in mesh_results.multi_face_landmarks:
@@ -70,10 +84,13 @@ while cap.isOpened():
 
                 if mouth_gap < 0.002:
                     print("Please, unfreeze")
+                # TODO: by eyes blinks
+                # mouth_open = not mouth_open
+                # print(f"Mouth movement detected: {'Open' if mouth_open else 'Closed'}")
+        # end_fl = time.time()
+        # print(f"Face Landmarks Operation Time: {end_fl - start_fl} seconds")
 
-                    # TODO: by eyes blinks
-                    # mouth_open = not mouth_open
-                    # print(f"Mouth movement detected: {'Open' if mouth_open else 'Closed'}")
+
 
         prev_time = time.time()
 
@@ -91,11 +108,13 @@ while cap.isOpened():
 
             if left_eye_closed and right_eye_closed:
                 print("Blink detected.")
-
+    '''
     cv2.imshow('Frame', frame)
 
     if cv2.waitKey(5) & 0xFF == 27:
         break
+    end_fd = time.time()
+    print(f"All operations time: {end_fd - start_fd} seconds")
 
 cap.release()
 cv2.destroyAllWindows()
