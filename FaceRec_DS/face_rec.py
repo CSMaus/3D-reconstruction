@@ -2,8 +2,28 @@ import cv2
 import mediapipe as mp
 import face_recognition
 import pandas as pd
-import numpy as np
 import time
+
+
+# bit GUI for video not to freeze
+def update_time(val):
+    global update_interval
+    update_interval = max(1, val)
+
+
+def update_blur_width(val):
+    global blur_width
+    blur_width = val
+
+
+update_interval = 10  # *0.1 sec
+blur_width = 50
+
+
+cv2.namedWindow('Face rec tests', cv2.WINDOW_NORMAL)
+cv2.resizeWindow('Face rec tests', 800, 700)
+cv2.createTrackbar('Blur Width', 'Face rec tests', 10, 390, update_blur_width)
+cv2.createTrackbar('Update t', 'Face rec tests', 1, 20, update_time)
 
 df = pd.read_csv('face_encodings.csv')
 known_face_encodings = [eval(encoding) for encoding in df['face_encoding']]
@@ -22,24 +42,19 @@ prev_time = time.time()
 mouth_open = False
 firstrun = True
 
-# save mask coordinates,
-x = 0
-y = 0
-w = 0
-h = 0
-ih, iw = 0, 0
+face_info = []
 name = "Recognized person name"
 
 while cap.isOpened():
-    start_fd = time.time()
-
+    # start_fd = time.time()
     ret, frame = cap.read()
     if not ret:
         break
 
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     current_time = time.time()
-    if current_time - prev_time >= 1:
+    if current_time - prev_time >= update_interval/10:
+        face_info = []
         results = face_detection.process(img_rgb)
         prev_time = current_time
         if results.detections:
@@ -62,17 +77,14 @@ while cap.isOpened():
                         name = known_face_names[first_match_index]
 
                     cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                face_info.append((x, y, w, h, name))
     else:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        face_locations = [(y, x + w, y + h, x)]
-        cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+        for (x, y, w, h, name) in face_info:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-    # end_fd = time.time()
-    # print(f"Face Detection Time: {end_fd - start_fd} seconds")
-
-
-            # end_fr = time.time()
-            # print(f"Face Recognition Time: {end_fr - start_fr} seconds")
+    frame[:, :blur_width] = cv2.blur(frame[:, :blur_width], (blur_width, blur_width))
+    frame[:, -blur_width:] = cv2.blur(frame[:, -blur_width:], (blur_width, blur_width))
 
     # leave it for later, now need to upgrade speed
     '''
@@ -123,12 +135,13 @@ while cap.isOpened():
             if left_eye_closed and right_eye_closed:
                 print("Blink detected.")
     '''
-    cv2.imshow('Frame', frame)
+    cv2.imshow('Face rec tests', frame)
 
     if cv2.waitKey(5) & 0xFF == 27:
         break
-    end_fd = time.time()
-    print(f"All operations time: {end_fd - start_fd} seconds")
+    # end_fd = time.time()
+    # print(f"All operations time: {end_fd - start_fd} seconds")
+    # print("To close the programm press key 'Esc'")
 
 cap.release()
 cv2.destroyAllWindows()
