@@ -22,40 +22,54 @@ prev_time = time.time()
 mouth_open = False
 firstrun = True
 
+# save mask coordinates,
+x = 0
+y = 0
+w = 0
+h = 0
+ih, iw = 0, 0
+name = "Recognized person name"
+
 while cap.isOpened():
     start_fd = time.time()
+
     ret, frame = cap.read()
     if not ret:
         break
 
+    img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     current_time = time.time()
-    if current_time - prev_time >= 0.5:
-        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if current_time - prev_time >= 1:
         results = face_detection.process(img_rgb)
         prev_time = current_time
+        if results.detections:
+            for detection in results.detections:
+                bboxC = detection.location_data.relative_bounding_box
+                ih, iw, _ = frame.shape
+                x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), int(bboxC.width * iw), int(bboxC.height * ih)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                face_locations = [(y, x + w, y + h, x)]
+                face_encodings = face_recognition.face_encodings(img_rgb, known_face_locations=face_locations)
+
+                # start_fr = time.time()
+                if face_encodings:
+                    matches = face_recognition.compare_faces(known_face_encodings, face_encodings[0], tolerance=0.6)
+                    name = "Unknown"
+
+                    if True in matches:
+                        first_match_index = matches.index(True)
+                        name = known_face_names[first_match_index]
+
+                    cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    else:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        face_locations = [(y, x + w, y + h, x)]
+        cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
     # end_fd = time.time()
     # print(f"Face Detection Time: {end_fd - start_fd} seconds")
 
-    if results.detections:
-        for detection in results.detections:
-            bboxC = detection.location_data.relative_bounding_box
-            ih, iw, _ = frame.shape
-            x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), int(bboxC.width * iw), int(bboxC.height * ih)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-            face_locations = [(y, x + w, y + h, x)]
-            face_encodings = face_recognition.face_encodings(img_rgb, known_face_locations=face_locations)
-
-            # start_fr = time.time()
-            if face_encodings:
-                matches = face_recognition.compare_faces(known_face_encodings, face_encodings[0], tolerance=0.6)
-                name = "Unknown"
-
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_face_names[first_match_index]
-
-                cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
             # end_fr = time.time()
             # print(f"Face Recognition Time: {end_fr - start_fr} seconds")
