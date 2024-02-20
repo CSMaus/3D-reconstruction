@@ -3,6 +3,8 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
+# it can be used to display 3d point cloud, but it can overfill memory
+# from mpl_toolkits.mplot3d import Axes3D
 
 
 def depth_to_pointcloud(depth_map, K, scale=1.0):
@@ -28,12 +30,30 @@ def depth_to_pointcloud(depth_map, K, scale=1.0):
     return valid_points
 
 
+def depth_to_pointcloud_simple(depth_map, scale=1.0):
+    """
+    Convert a depth map into a point cloud in simple way, similar to generating height map
+    and landscape in procedural generation
+    """
+    h, w = depth_map.shape
+    x, y = np.meshgrid(np.arange(w), np.arange(h))
+
+    z = depth_map * scale
+    x = x - w / 2
+    y = y - h / 2
+
+    points = np.stack((x, -y, z), axis=-1)  # Inverting y for correct up-down orientation
+    valid_points = points[z > 0]
+
+    return valid_points
+
+
 # for torch take a look at firs box in jupyter file
 # timm version: 0.6.5
 # pip install --force-reinstall  timm==0.4.12 torch==1.13.0 torchaudio==0.13.0 // better run previous line
 # https://www.kaggle.com/code/amarlove/midas-image-depth-estimation
 # latest version of opencv don't have GUI part, so I used pip install opencv-python==4.5.5.62
-device = torch.device("cpu")  # cuda") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 # "DPT_Large" "MiDaS_small" "DPT_Hybrid"
 model_type = "MiDaS_small"
 
@@ -45,54 +65,59 @@ midas.eval()
 transforms = torch.hub.load('intel-isl/MiDaS', 'transforms')
 transform = transforms.small_transform
 
+vis = o3d.visualization.Visualizer()
+vis.create_window(width=1200, height=900)
+pcd = o3d.geometry.PointCloud()
 # adjust camera
 K = np.array([[700, 0, 410], [0, 700, 350], [0, 0, 1]])
 dop = True
+scale_factor = 0.4
 
-scale_factor = 1
+# simple GUI
+paused = False
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
+    if not paused:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        imgbatch = transform(img).to(device)
+
+        with torch.no_grad():
+            prediction = midas(imgbatch)
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=img.shape[:2],
+                mode='bicubic',
+                align_corners=False
+            ).squeeze()
+            output = prediction.cpu().numpy()
+
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output, alpha=0.03), cv2.COLORMAP_TURBO)
+        cv2.imshow('Original Frame', frame)
+        cv2.imshow('Depth Output', depth_colormap)
+
+    key = cv2.waitKey(1)
+    if key & 0xFF == ord('p'):  # 'p' to pause and create point cloud
+        paused = True
+    elif key & 0xFF == 27:  # 'Esc' to exit
         break
 
-    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    imgbatch = transform(img).to(device)
+    if paused:
+        # 3D
+        point_cloud = depth_to_pointcloud_simple(output, scale_factor)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(point_cloud)
+        vis.clear_geometries()
+        vis.add_geometry(pcd)
+        paused = False
 
-    with torch.no_grad():
-        prediction = midas(imgbatch)
-        prediction = torch.nn.functional.interpolate(
-            prediction.unsqueeze(1),
-            size=img.shape[:2],
-            mode='bicubic',
-            align_corners=False
-        ).squeeze()
-        output = prediction.cpu().numpy()
-        # output = 255*output/np.amax(output)
-        if dop:
-            print(np.amin(output))
-            print(np.amax(output))
-            dop = False
+    vis.poll_events()
+    vis.update_renderer()
 
-    # COLORMAP_TURBO and _JET works quite well
-    # do not use plt bcs it's overfill the memory or gives error bcs of conflicts in attempts of
-    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output, alpha=0.03), cv2.COLORMAP_TURBO)
-
-    cv2.imshow('Original Frame', frame)
-    cv2.imshow('Depth Output', depth_colormap)
-
-    # 3d
-    point_cloud = depth_to_pointcloud(output, K, scale_factor)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    o3d.visualization.draw_geometries([pcd])
-
-    # if cv2.waitKey(15) & 0xFF == ord('q'):
-    # Esc to break the loop
-    if cv2.waitKey(5) & 0xFF == 27:
-        break
-    break
-
+vis.destroy_window()
 cap.release()
 cv2.destroyAllWindows()
 
