@@ -80,9 +80,9 @@ while cap.isOpened():
                         face_descriptor = compute_face_descriptor(face_landmarks, frame.shape)
                         match_index, distance = compare_faces(known_face_encodings, face_descriptor)
                         if distance < 450:
-                            print(distance)
                             name = "Kseniia"  #known_face_names[match_index]
                         else:
+                            print(distance)
                             name = "Unknown"
 
                         cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
