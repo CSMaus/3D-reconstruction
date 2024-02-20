@@ -14,11 +14,22 @@ def compute_face_descriptor(landmarks, image_shape):
     return np.array(face_descriptor)
 
 
-def compare_faces(known_encodings, face_encoding):
+def compare_faces_eu(known_encodings, face_encoding):
     if len(known_encodings) == 0:
         return None
     # Euclidean distance
     distances = np.linalg.norm(known_encodings - face_encoding, axis=1)
+    return np.argmin(distances), distances[np.argmin(distances)]
+
+
+def compare_faces(known_encodings, face_encoding):
+    if len(known_encodings) == 0:
+        return None
+    face_encoding_norm = face_encoding / np.linalg.norm(face_encoding)
+    known_encodings_norm = known_encodings / np.linalg.norm(known_encodings, axis=1, keepdims=True)
+    cosine_similarity = np.dot(known_encodings_norm, face_encoding_norm)
+    distances = 1 - cosine_similarity
+
     return np.argmin(distances), distances[np.argmin(distances)]
 
 
@@ -78,8 +89,10 @@ while cap.isOpened():
                 if face_results.multi_face_landmarks:
                     for face_landmarks in face_results.multi_face_landmarks:
                         face_descriptor = compute_face_descriptor(face_landmarks, frame.shape)
-                        match_index, distance = compare_faces(known_face_encodings, face_descriptor)
+                        match_index, distance = compare_faces_eu(known_face_encodings, face_descriptor)
+                        # if distance < 0.00025:
                         if distance < 450:
+                            print("Kseniia", distance)
                             name = "Kseniia"  #known_face_names[match_index]
                         else:
                             print(distance)
