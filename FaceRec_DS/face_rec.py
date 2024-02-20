@@ -18,8 +18,6 @@ def update_blur_width(val):
 
 update_interval = 10  # *0.1 sec
 blur_width = 50
-
-
 cv2.namedWindow('Face rec tests', cv2.WINDOW_NORMAL)
 cv2.resizeWindow('Face rec tests', 800, 700)
 cv2.createTrackbar('Blur Width', 'Face rec tests', 10, 390, update_blur_width)
@@ -44,7 +42,7 @@ firstrun = True
 
 face_info = []
 name = "Recognized person name"
-
+print("Press Esc to close the programm")
 while cap.isOpened():
     # start_fd = time.time()
     ret, frame = cap.read()
@@ -55,7 +53,10 @@ while cap.isOpened():
     current_time = time.time()
     if current_time - prev_time >= update_interval/10:
         face_info = []
+        start_fd = time.time()
         results = face_detection.process(img_rgb)
+        end_fd = time.time()
+        print(f"Face detection time: {end_fd - start_fd} seconds")
         prev_time = current_time
         if results.detections:
             for detection in results.detections:
@@ -64,10 +65,10 @@ while cap.isOpened():
                 x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), int(bboxC.width * iw), int(bboxC.height * ih)
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
+                start_fr = time.time()
                 face_locations = [(y, x + w, y + h, x)]
                 face_encodings = face_recognition.face_encodings(img_rgb, known_face_locations=face_locations)
 
-                # start_fr = time.time()
                 if face_encodings:
                     matches = face_recognition.compare_faces(known_face_encodings, face_encodings[0], tolerance=0.6)
                     name = "Unknown"
@@ -78,6 +79,8 @@ while cap.isOpened():
 
                     cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
                 face_info.append((x, y, w, h, name))
+                end_fr = time.time()
+                # print(f"Face rec time: {end_fr - start_fr} seconds")
     else:
         for (x, y, w, h, name) in face_info:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)

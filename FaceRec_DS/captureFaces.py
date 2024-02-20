@@ -7,8 +7,12 @@ folder = "captured_faces"
 if not os.path.exists(folder):
     os.makedirs(folder)
 
-cap = cv2.VideoCapture(0)
 img_counter = 0
+if os.path.exists(folder):
+    names = os.listdir(os.path.join(folder))
+    img_counter = len(names)
+cap = cv2.VideoCapture(0)
+
 
 while True:
     ret, frame = cap.read()
