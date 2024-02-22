@@ -1,3 +1,5 @@
+import os.path
+
 import cv2
 import torch
 import matplotlib.pyplot as plt
@@ -143,7 +145,7 @@ paused = False
 gif_path = "Gifs/"
 capturing = False
 frames_for_gif = []
-
+idx = len(os.listdir(os.path.join("Gifs/")))
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
     # if not paused:
@@ -208,7 +210,9 @@ while cap.isOpened():
         if frames_for_gif:
             print("Generating GIF...")
             gif_images = [Image.fromarray(cv2.cvtColor(frm, cv2.COLOR_BGR2RGB)) for frm in frames_for_gif]
-            gif_path = "output.gif"
+            if os.path.isfile(f"Gifs/output-{idx}.gif"):
+                idx += 1
+            gif_path = f"Gifs/output-{idx}.gif"
             imageio.mimsave(gif_path, gif_images, format='GIF', fps=10)
             print(f"GIF saved as {gif_path}")
             frames_for_gif.clear()

@@ -10,6 +10,6 @@ In future, I will add ability to create mesh from depth map which is better for 
 Here is original video input and depth map for it calculated using midas library "MiDaS_small" Neural Network.
 Later modifications will be added to create accurate 3D for object based on video of it (not just one frame as it does now)
 <br>
-![3D_rec/output.gif](3D_rec/output.gif)
+![3D_rec/Gifs/output.gif](3D_rec/Gifs/output.gif)
 ![img_1.png](img_1.png)
 ![img.png](img.png)
