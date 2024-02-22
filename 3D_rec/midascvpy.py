@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-
+import time
 
 # it can be used to display 3d point cloud, but it can overfill memory
 # from mpl_toolkits.mplot3d import Axes3D
@@ -56,7 +56,7 @@ def depth_to_pointcloud_simple(depth_map, scale=1.0):
 # https://www.kaggle.com/code/amarlove/midas-image-depth-estimation
 # latest version of opencv don't have GUI part, so I used pip install opencv-python==4.5.5.62
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-# "DPT_Large" "MiDaS_small" "DPT_Hybrid"
+# "DPT_Large" "MiDaS_small" "DPT_Hybrid"   "DPT_BEiT_Large"
 model_type = "MiDaS_small"
 
 midas = torch.hub.load('intel-isl/MiDaS', model_type)
@@ -68,8 +68,12 @@ transforms = torch.hub.load('intel-isl/MiDaS', 'transforms')
 transform = transforms.small_transform
 
 vis = o3d.visualization.Visualizer()
-vis.create_window(width=1200, height=900)
+vis.create_window(width=800, height=600)
 pcd = o3d.geometry.PointCloud()
+
+vis2 = o3d.visualization.Visualizer()
+vis2.create_window(width=800, height=600)
+pcd2 = o3d.geometry.PointCloud()
 # adjust camera
 K = np.array([[700, 0, 410], [0, 700, 350], [0, 0, 1]])
 dop = True
@@ -87,6 +91,11 @@ def refine_depth_with_edges(depth_map, edge_map, dilation_size=5, blend_factor=0
 
 
 # simple GUI
+def update_alpha(val):
+    global alpha
+    alpha = max(1, val)
+
+
 def update_p1(val):
     global update_param1
     update_param1 = max(1, val)
@@ -127,6 +136,13 @@ def update_edge_blurbi(val):
     edge_blurbi = max(5, val)
 
 
+def update_frame_time(val):
+    global frame_time
+    frame_time = max(1, val)
+
+
+frame_time = 1
+alpha = 1
 update_param1 = 100
 update_param2 = 200
 update_num_f = 5
@@ -137,25 +153,34 @@ edge_blurbi = 5
 depth_blur_s = 3
 
 
+cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
+cv2.createTrackbar('UTime/10', 'Frame', 1, 50, update_frame_time)
+
 cv2.namedWindow('Edge Detection', cv2.WINDOW_NORMAL)
 cv2.createTrackbar('Edge p1', 'Edge Detection', 10, 500, update_p1)  # 82
 cv2.createTrackbar('Edge p2', 'Edge Detection', 10, 500, update_p2)  # 46
 cv2.createTrackbar('Num frames', 'Edge Detection', 3, 11, update_num_frames)  # >5
+cv2.createTrackbar('Blur edges', 'Edge Detection', 1, 15, update_edge_blur_size)
 cv2.namedWindow('Depth map upgraded', cv2.WINDOW_NORMAL)
 cv2.createTrackbar('Dilation s', 'Depth map upgraded', 3, 11, update_dilation_size)  # 5
 cv2.createTrackbar('Blend f', 'Depth map upgraded', 1, 10, update_blend_factor)  # 0.5
-cv2.createTrackbar('Blur edges', 'Edge Detection', 1, 15, update_edge_blur_size)
-# cv2.createTrackbar('Blur gauss', 'Depth map upgraded', 1, 15, update_depth_blur_size)
-# cv2.createTrackbar('Blur bi', 'Depth map upgraded', 5, 150, update_edge_blurbi)
-edge_buffer = []
 
+cv2.namedWindow('Depth Output', cv2.WINDOW_NORMAL)
+cv2.createTrackbar('Alpha', 'Depth Output', 5, 200, update_alpha)
+cv2.createTrackbar('Blur gauss', 'Depth map upgraded', 1, 15, update_depth_blur_size)
+cv2.createTrackbar('Blur bi', 'Depth map upgraded', 5, 150, update_edge_blurbi)
+edge_buffer = []
+prev_time = time.time()
 paused = False
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
-    if not paused:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # if not paused:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    current_time = time.time()
+    if current_time - prev_time >= frame_time/10:
 
         B, G, R = cv2.split(frame)
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -180,20 +205,13 @@ while cap.isOpened():
             # here can move it to cuda
             output = prediction.cpu().numpy()
 
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output, alpha=0.03), cv2.COLORMAP_TURBO)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(output, alpha=alpha/100), cv2.COLORMAP_TURBO)
         cv2.imshow('Depth Output', depth_colormap)
-        cv2.imshow('Frame', frame)
-
-        key = cv2.waitKey(1)
-        if key & 0xFF == ord('p'):  # 'p' to pause and create point cloud
-            paused = True
-        elif key & 0xFF == 27:  # 'Esc' to exit
-            break
-
+        prev_time = current_time
         if len(edge_buffer) == update_num_f:
             consistent_edges = np.bitwise_and.reduce(edge_buffer)
             consistent_edges = cv2.GaussianBlur(consistent_edges, (edge_blur_s, edge_blur_s), 0)
-
+    
             output2 = refine_depth_with_edges(output, consistent_edges, dilation_s, blend_f / 10)
             # output2 = cv2.normalize(output2, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_32F)
             # output2 = cv2.bilateralFilter(output2, depth_blur_s, edge_blurbi, edge_blurbi)
@@ -204,18 +222,32 @@ while cap.isOpened():
 
             if paused:
                 # 3D
-                point_cloud = depth_to_pointcloud_simple(output2, scale_factor)
+                point_cloud = depth_to_pointcloud_simple(output, scale_factor)
                 pcd = o3d.geometry.PointCloud()
                 pcd.points = o3d.utility.Vector3dVector(point_cloud)
                 vis.clear_geometries()
                 vis.add_geometry(pcd)
                 print("3D should be created")
                 paused = False
-        else:
-            pass
+                point_cloud2 = depth_to_pointcloud_simple(output2, scale_factor)
+                pcd2 = o3d.geometry.PointCloud()
+                pcd2.points = o3d.utility.Vector3dVector(point_cloud2)
+                vis2.clear_geometries()
+                vis2.add_geometry(pcd2)
+            else:
+                pass
+    cv2.imshow('Frame', frame)
+    key = cv2.waitKey(1)
+    if key & 0xFF == ord('p'):  # 'p' to pause and create point cloud
+        paused = True
+    elif key & 0xFF == 27:  # 'Esc' to exit
+        break
 
     vis.poll_events()
     vis.update_renderer()
+
+    vis2.poll_events()
+    vis2.update_renderer()
 
 vis.destroy_window()
 cap.release()
