@@ -216,7 +216,8 @@ while True:
     ret, curr_frame = cap.read()
     if not ret:
         break
-
+    if frame_idx >320:
+        break
     frame_idx += 1
     if frame_idx % 4 == 0:
         if print_time:
