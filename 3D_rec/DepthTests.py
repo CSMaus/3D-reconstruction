@@ -1,5 +1,4 @@
 import os.path
-
 import cv2
 import torch
 import matplotlib.pyplot as plt
@@ -9,6 +8,7 @@ import time
 from PIL import Image
 import io
 import imageio
+
 
 # it can be used to display 3d point cloud, but it can overfill memory
 # from mpl_toolkits.mplot3d import Axes3D
@@ -58,7 +58,7 @@ pcd = o3d.geometry.PointCloud()
 # adjust camera
 K = np.array([[700, 0, 410], [0, 700, 350], [0, 0, 1]])
 dop = True
-scale_factor = 0.4
+scale_factor = 1
 
 
 def refine_depth_with_edges(depth_map, edge_map, dilation_size=5, blend_factor=0.5):
@@ -117,6 +117,11 @@ def update_edge_blurbi(val):
     edge_blurbi = max(5, val)
 
 
+def update_scale_factor(val):
+    global scale_factor
+    scale_factor = max(1, val)
+
+
 alpha = 1
 update_param1 = 100
 update_param2 = 200
@@ -136,6 +141,7 @@ def update_frame_time(val):
 
 cv2.namedWindow('Depth Output', cv2.WINDOW_NORMAL)
 cv2.createTrackbar('Alpha', 'Depth Output', 5, 200, update_alpha)
+cv2.createTrackbar('Scal', 'Depth Output', 1, 10, update_scale_factor)
 cv2.namedWindow('Frame', cv2.WINDOW_NORMAL)
 cv2.createTrackbar('Time/100', 'Frame', 1, 150, update_frame_time)
 edge_buffer = []
@@ -147,6 +153,7 @@ capturing = False
 frames_for_gif = []
 idx = len(os.listdir(os.path.join("Gifs/")))
 cap = cv2.VideoCapture(0)
+img_counter = 0
 while cap.isOpened():
     # if not paused:
     ret, frame = cap.read()
@@ -154,7 +161,7 @@ while cap.isOpened():
         break
 
     current_time = time.time()
-    if current_time - prev_time >= frame_time/100:
+    if current_time - prev_time >= frame_time / 100:
 
         B, G, R = cv2.split(frame)
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -189,7 +196,7 @@ while cap.isOpened():
         prev_time = current_time
     if paused:
         # 3D
-        point_cloud = depth_to_pointcloud_simple(output, scale_factor)
+        point_cloud = depth_to_pointcloud_simple(output, scale_factor/10)
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(point_cloud)
         vis.clear_geometries()
@@ -220,6 +227,13 @@ while cap.isOpened():
             print("No frames captured for GIF.")
     elif key & 0xFF == 27:  # 'Esc' to exit
         break
+
+    elif key % 256 == 99:
+        # press 'c' to capture image
+        img_name = os.path.join("imgs/", f"image_{img_counter}.png")
+        cv2.imwrite(img_name, frame)
+        print(f"{img_name} saved")
+        img_counter += 1
 
     vis.poll_events()
     vis.update_renderer()
