@@ -1,12 +1,13 @@
 import open3d as o3d
 import numpy as np
+import cv2
+import torch
 
 
-def calculate_frame_depthmap(frame):
+def calculate_frame_depthmap(img):
     """
     For current frame caculate depth map using MiDaS
     """
-    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     imgbatch = transform(img).to(device)
     with torch.no_grad():
         prediction = midas(imgbatch)
@@ -16,7 +17,6 @@ def calculate_frame_depthmap(frame):
             mode='bicubic',
             align_corners=False
         ).squeeze()
-        # here can move it to cuda
         return prediction.cpu().numpy()
 
 
@@ -38,16 +38,33 @@ def depth_to_pointcloud_simple(depth_map, scale=1.0):
     return valid_points
 
 
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+print("Device: ", device)
+# "DPT_Large" "MiDaS_small" "DPT_Hybrid"   "DPT_BEiT_Large"
+model_type = "MiDaS_small"
+midas = torch.hub.load('intel-isl/MiDaS', model_type)
+midas.to(device)
+midas.eval()
+transforms = torch.hub.load('intel-isl/MiDaS', 'transforms')
+transform = transforms.small_transform
 
+im0 = cv2.imread("imgs/image_0.png", cv2.COLOR_BGR2RGB)
+im1 = cv2.imread("imgs/image_1.png", cv2.COLOR_BGR2RGB)
 
+print("Max img val: ", np.amax(im0))
+
+depth_map0 = calculate_frame_depthmap(im0)
+depth_map1 = calculate_frame_depthmap(im1)
+
+scale_factor = 0.5
+point_cloud0 = depth_to_pointcloud_simple(depth_map0, scale_factor)
 point_cloud1 = depth_to_pointcloud_simple(depth_map1, scale_factor)
-point_cloud2 = depth_to_pointcloud_simple(depth_map2, scale_factor)
 
 pcd1 = o3d.geometry.PointCloud()
-pcd1.points = o3d.utility.Vector3dVector(point_cloud1)
+pcd1.points = o3d.utility.Vector3dVector(point_cloud0)
 
 pcd2 = o3d.geometry.PointCloud()
-pcd2.points = o3d.utility.Vector3dVector(point_cloud2)
+pcd2.points = o3d.utility.Vector3dVector(point_cloud1)
 
 # ICP registration
 threshold = 0.02
