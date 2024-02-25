@@ -3,6 +3,18 @@ import numpy as np
 import cv2
 import torch
 
+vis = o3d.visualization.Visualizer()
+vis.create_window(width=800, height=600)
+pcd = o3d.geometry.PointCloud()
+
+vis0 = o3d.visualization.Visualizer()
+vis0.create_window(width=800, height=600)
+pcd0 = o3d.geometry.PointCloud()
+
+vis1 = o3d.visualization.Visualizer()
+vis1.create_window(width=800, height=600)
+pcd1 = o3d.geometry.PointCloud()
+
 
 def calculate_frame_depthmap(img):
     """
@@ -60,11 +72,13 @@ scale_factor = 0.5
 point_cloud0 = depth_to_pointcloud_simple(depth_map0, scale_factor)
 point_cloud1 = depth_to_pointcloud_simple(depth_map1, scale_factor)
 
-pcd1 = o3d.geometry.PointCloud()
-pcd1.points = o3d.utility.Vector3dVector(point_cloud0)
+pcd0.points = o3d.utility.Vector3dVector(point_cloud0)
+vis0.clear_geometries()
+vis0.add_geometry(pcd0)
 
-pcd2 = o3d.geometry.PointCloud()
-pcd2.points = o3d.utility.Vector3dVector(point_cloud1)
+pcd1.points = o3d.utility.Vector3dVector(point_cloud1)
+vis1.clear_geometries()
+vis1.add_geometry(pcd1)
 
 # ICP registration
 threshold = 0.02
@@ -73,11 +87,32 @@ trans_init = np.asarray([[1, 0, 0, 0],
                          [0, 0, 1, 0],
                          [0, 0, 0, 1]])
 reg_p2p = o3d.pipelines.registration.registration_icp(
-    pcd1, pcd2, threshold, trans_init,
+    pcd0, pcd1, threshold, trans_init,
     o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
-pcd2.transform(reg_p2p.transformation)
+pcd1.transform(reg_p2p.transformation)
 
-pcd_combined = pcd1 + pcd2
+pcd_combined = pcd0 + pcd1
+vis.clear_geometries()
+vis.add_geometry(pcd_combined)
 
-o3d.visualization.draw_geometries([pcd_combined])
+# display all together
+while True:
+    vis0.poll_events()
+    vis0.update_renderer()
+
+    vis1.poll_events()
+    vis1.update_renderer()
+
+    vis.poll_events()
+    vis.update_renderer()
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        break
+
+vis0.destroy_window()
+vis1.destroy_window()
+vis.destroy_window()
+
+
+
