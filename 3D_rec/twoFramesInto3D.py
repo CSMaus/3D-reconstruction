@@ -4,15 +4,15 @@ import cv2
 import torch
 
 vis = o3d.visualization.Visualizer()
-vis.create_window(width=800, height=600)
+vis.create_window(width=800, height=600, window_name="3D Combo")
 pcd = o3d.geometry.PointCloud()
 
 vis0 = o3d.visualization.Visualizer()
-vis0.create_window(width=800, height=600)
+vis0.create_window(width=800, height=600, window_name="3D Image 0")
 pcd0 = o3d.geometry.PointCloud()
 
 vis1 = o3d.visualization.Visualizer()
-vis1.create_window(width=800, height=600)
+vis1.create_window(width=800, height=600, window_name="3D Image 1")
 pcd1 = o3d.geometry.PointCloud()
 
 
@@ -107,7 +107,8 @@ while True:
     vis.poll_events()
     vis.update_renderer()
 
-    if cv2.waitKey(1) & 0xFF == 27:
+    key = cv2.waitKey(1)
+    if key & 0xFF == 27:  # 'Esc' to exit
         break
 
 vis0.destroy_window()
