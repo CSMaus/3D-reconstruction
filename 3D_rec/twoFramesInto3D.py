@@ -3,6 +3,10 @@ import numpy as np
 import cv2
 import torch
 
+# need to adjust camera position changing, bcs now mismatch are getting
+# also, take distance values to the half to not take background
+
+
 vis = o3d.visualization.Visualizer()
 vis.create_window(width=800, height=600, window_name="3D Combo")
 pcd = o3d.geometry.PointCloud()
@@ -44,8 +48,10 @@ def depth_to_pointcloud_simple(depth_map, scale=1.0):
     x = x - w / 2
     y = y - h / 2
 
-    points = np.stack((x, -y, z), axis=-1)  # Inverting y for correct up-down orientation
-    valid_points = points[z > 0]
+    max_distance = np.amax(z)/1.1
+    points = np.stack((x, -y, z), axis=-1)
+    # valid_points = points[z > 0]
+    valid_points = points[(z > 0) & (z < max_distance)]
 
     return valid_points
 
@@ -80,8 +86,8 @@ pcd1.points = o3d.utility.Vector3dVector(point_cloud1)
 vis1.clear_geometries()
 vis1.add_geometry(pcd1)
 
-# ICP registration
-threshold = 0.02
+# ICP registration: need to adjust
+threshold = 0.22
 trans_init = np.asarray([[1, 0, 0, 0],
                          [0, 1, 0, 0],
                          [0, 0, 1, 0],

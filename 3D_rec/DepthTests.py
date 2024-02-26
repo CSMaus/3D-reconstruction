@@ -133,6 +133,11 @@ edge_blurbi = 5
 depth_blur_s = 3
 frame_time = 1
 
+if not os.path.exists("imgs/"):
+    os.makedirs("imgs/")
+if not os.path.exists("Gifs/"):
+    os.makedirs("Gifs/")
+
 
 def update_frame_time(val):
     global frame_time
