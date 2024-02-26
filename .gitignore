@@ -9,6 +9,8 @@ __pycache__/
 *.jpg
 *.csv
 *.pkl
+*.mp4
+*3D_rec/test_video.mp4
 
 # Folders
 *.idea/
