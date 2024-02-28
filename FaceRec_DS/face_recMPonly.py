@@ -17,11 +17,11 @@ def compute_face_descriptor(landmarks, image_shape):
 def compare_faces_eu(known_encodings, face_encoding):
     if len(known_encodings) == 0:
         return None
-    # Euclidean distance
     distances = np.linalg.norm(known_encodings - face_encoding, axis=1)
     return np.argmin(distances), distances[np.argmin(distances)]
 
 
+# cosine similarity
 def compare_faces(known_encodings, face_encoding):
     if len(known_encodings) == 0:
         return None
@@ -30,7 +30,7 @@ def compare_faces(known_encodings, face_encoding):
     cosine_similarity = np.dot(known_encodings_norm, face_encoding_norm)
     distances = 1 - cosine_similarity
 
-    return np.argmin(distances), distances[np.argmin(distances)]
+    return np.argmin(distances), distances[np.argmin(distances)]*1000
 
 
 def update_time(val):
@@ -43,16 +43,16 @@ def update_blur_width(val):
     blur_width = val
 
 
-update_interval = 10  # *0.1 sec
+update_interval = 10  # *0.01 sec
 blur_width = 50
 cv2.namedWindow('Face rec tests', cv2.WINDOW_NORMAL)
 cv2.resizeWindow('Face rec tests', 800, 700)
 cv2.createTrackbar('Blur Width', 'Face rec tests', 10, 390, update_blur_width)
 cv2.createTrackbar('Update t', 'Face rec tests', 1, 300, update_time)
 
-df = pd.read_csv('face_encodingsMP.csv')
+df = pd.read_csv('face_encodingsMPtest.csv')  # face_encodingsMP face_encodingsMPauto
 known_face_encodings = [np.array(eval(encoding)) for encoding in df['face_encoding']]
-known_face_names = df['filename'].tolist()
+# known_face_names = df['filename'].tolist()
 
 mp_face_detection = mp.solutions.face_detection
 mp_face_mesh = mp.solutions.face_mesh
@@ -93,7 +93,7 @@ while cap.isOpened():
                         # if distance < 0.00025:
                         if distance < 450:
                             print("Kseniia", distance)
-                            name = "Kseniia"  #known_face_names[match_index]
+                            name = "Kseniia"  # known_face_names[match_index]
                         else:
                             print(distance)
                             name = "Unknown"

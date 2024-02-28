@@ -30,10 +30,12 @@ for filename in os.listdir(image_dir):
         results = face_mesh.process(image_rgb)
         if results.multi_face_landmarks:
             face_descriptor = compute_face_descriptor(results.multi_face_landmarks[0], image.shape)
-            data.append((filename, face_descriptor.tolist()))
+            data.append(face_descriptor.tolist())
+            # data.append((filename, face_descriptor.tolist()))
 
-df = pd.DataFrame(data, columns=['filename', 'face_encoding'])
-df.to_csv('face_encodingsMP.csv', index=False)
+# df = pd.DataFrame(data, columns=['filename', 'face_encoding'])
+df = pd.DataFrame({'face_encoding': [str(enc) for enc in data]})
+df.to_csv('face_encodingsMPtest.csv', index=False)
 
 face_mesh.close()
-print("Face encodings have been saved to face_encodingsMP.csv")
+print("Face encodings have been saved to face_encodingsMPtest.csv")
