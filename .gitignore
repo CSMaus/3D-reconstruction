@@ -10,12 +10,13 @@ __pycache__/
 *.csv
 *.pkl
 *.mp4
-*3D_rec/test_video.mp4
+
 
 # Folders
 *.idea/
 *.ipynb_checkpoints/
 *midas/
+*segmentation/Data/
 
 *sorted/
 *archive/
