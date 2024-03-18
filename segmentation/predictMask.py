@@ -5,11 +5,11 @@ import numpy as np
 import cv2
 import torchvision
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")  # "cuda" if torch.cuda.is_available() else "cpu")
 
 model = torchvision.models.segmentation.fcn_resnet50(pretrained=False, num_classes=1)
 model.classifier[4] = torch.nn.Conv2d(512, 1, kernel_size=(1, 1))
-model.load_state_dict(torch.load('trained_model.pth'), strict=False)
+model.load_state_dict(torch.load('trained_model.pth', map_location='cpu'), strict=False)
 model = model.to(device)
 model.eval()  # evaluation mode
 
@@ -18,7 +18,7 @@ transform = T.Compose([
     T.ToTensor(),
 ])
 
-input_image_path = 'frame_0004.jpg'
+input_image_path = 'frame_0010.jpg'
 image = Image.open(input_image_path).convert("RGB")
 original_image_np = np.array(image)
 original_size = image.size
