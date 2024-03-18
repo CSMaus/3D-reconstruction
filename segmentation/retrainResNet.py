@@ -34,6 +34,7 @@ class WeldDataset(Dataset):
         except Exception as e:
             print(f"Error loading data for {img_name}: {e}")
 
+
 transform = T.Compose([
     T.Resize((256, 256)),
     T.ToTensor(),

@@ -6,7 +6,7 @@ import torch
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 1
+video_idx = 0
 frame_idx = 250
 d = 9
 sigmaColor = 75

@@ -152,3 +152,4 @@ dmypy.json
 *.zip
 *.json
 *.pt
+*.pdf
