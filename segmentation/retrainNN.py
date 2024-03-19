@@ -7,6 +7,10 @@ import os
 from torchvision.models.segmentation import deeplabv3_resnet101, deeplabv3_resnet50
 from torch import nn
 from torchvision import models
+from datetime import datetime
+import time
+
+num_pixels = 256
 
 
 class WeldDataset(Dataset):
@@ -75,12 +79,14 @@ class WeldDataset(Dataset):
 
 def get_deeplabv3_pretrained_model(num_classes):
     model = deeplabv3_resnet101(pretrained=True)  # 50
-    model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=(1, 1), stride=(1, 1))
+    model.classifier[4] = nn.Conv2d(num_pixels, num_classes, kernel_size=(1, 1), stride=(1, 1))
     return model
 
 
+time_start = time.time()
+print('Start script at: ', time_start)
 transform = T.Compose([
-    T.Resize((256, 256)),
+    T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
 
@@ -91,7 +97,7 @@ dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
-model.classifier[4] = nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+model.classifier[4] = nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using {device} device")
 model = model.to(device)
@@ -99,7 +105,7 @@ model = model.to(device)
 criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-num_epochs = 10
+num_epochs = 50
 for epoch in range(num_epochs):
     model.train()
     for images, masks in dataloader:
@@ -113,4 +119,10 @@ for epoch in range(num_epochs):
         optimizer.step()
     print(f"Epoch {epoch+1}, Loss: {loss.item()}")
 
-torch.save(model.state_dict(), 'retrained_deeplabv3_resnet101.pth')
+current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
+torch.save(model.state_dict(), f'retrained_deeplabv3_resnet101-{current_date}.pth')
+
+
+time_end = time.time()
+print('End script at: ', time_end)
+print('All computations took: ', time_end - time_start)
