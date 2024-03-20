@@ -4,10 +4,11 @@ import numpy as np
 from pathlib import Path
 import os
 
+# for 2 of 5 electrode positions also ready
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 # video_idx = 2
-video_name = "Weld_Video_2023-04-20_02-19-11_Camera01.avi.avi"
+video_name = "Weld_Video_2023-04-20_02-34-42_Camera02.avi.avi"
 
 video_path = video_folder+video_name
 xml_path = f'Data/Annotations/{video_name[:-8]}annotations.xml'

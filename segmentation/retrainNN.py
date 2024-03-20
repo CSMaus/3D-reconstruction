@@ -106,6 +106,7 @@ criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
+loss_history = []
 for epoch in range(num_epochs):
     model.train()
     for images, masks in dataloader:
@@ -118,10 +119,16 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
     print(f"Epoch {epoch+1}, Loss: {loss.item()}")
+    loss_history.append(loss.item())
 
 current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
 torch.save(model.state_dict(), f'retrained_deeplabv3_resnet101-{current_date}.pth')
 
+
+filename = f"training_history-deeplabv3_resnet101-{current_date}.txt"
+with open(filename, 'w') as f:
+    for epoch, loss in enumerate(loss_history, 1):
+        f.write(f"Epoch {epoch}, Loss: {loss}\n")
 
 time_end = time.time()
 print('End script at: ', time_end)

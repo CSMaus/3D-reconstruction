@@ -43,7 +43,7 @@ transform = T.Compose([
     T.ToTensor(),
 ])
 
-input_image_path = 'frame_1320.jpg'
+input_image_path = 'frame_02-19-11_Camera01_1007.jpg'
 image = Image.open(input_image_path).convert("RGB")
 image = resize_image(image)
 original_image_np = np.array(image)
