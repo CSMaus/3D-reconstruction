@@ -4,7 +4,7 @@ import numpy as np
 import time
 import torch
 
-video_folder = "D:/ML_DL_AI_stuff/!DoosanSW/Data-20240315T004246Z-001/Data/Weld_VIdeo/"
+video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 video_idx = 2
 frame_idx = 0
