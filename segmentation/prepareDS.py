@@ -11,7 +11,7 @@ videos = os.listdir(os.path.join(video_folder))
 video_name = "Weld_Video_2023-04-20_02-34-42_Camera02.avi.avi"
 
 video_path = video_folder+video_name
-xml_path = f'Data/Annotations/{video_name[:-8]}annotations.xml'
+xml_path = f'Data/Annotations/{video_name[:-8]}-annotations.xml'
 
 if not os.path.exists(xml_path):
     print(f"Annotations file not found: {xml_path}")

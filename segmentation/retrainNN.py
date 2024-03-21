@@ -10,6 +10,7 @@ from torchvision import models
 from datetime import datetime
 import time
 from torch.nn.parallel import DataParallel
+thresh = 2
 
 
 class WeldDataset(Dataset):
@@ -34,8 +35,8 @@ class WeldDataset(Dataset):
         # i e if they contain almost zero values
         top_row = np.mean(image_np[0, :, :])
         bottom_row = np.mean(image_np[-1, :, :])
-        if top_row < 5 and bottom_row < 5:
-            rows = np.where(np.mean(image_np, axis=(1, 2)) > 5)[0]
+        if top_row < thresh and bottom_row < thresh:
+            rows = np.where(np.mean(image_np, axis=(1, 2)) > thresh)[0]
             if len(rows) > 0:
                 if len(rows) < image.width:
                     first_row = int((image.height - image.width)/2)

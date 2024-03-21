@@ -6,14 +6,15 @@ import time
 import torch
 import torchvision
 import torchvision.transforms as T
+thresh = 2
 
 
 def resize_image(img):
     image_np = np.array(img)
     top_row = np.mean(image_np[0, :, :])
     bottom_row = np.mean(image_np[-1, :, :])
-    if top_row < 5 and bottom_row < 5:
-        rows = np.where(np.mean(image_np, axis=(1, 2)) > 5)[0]
+    if top_row < thresh and bottom_row < thresh:
+        rows = np.where(np.mean(image_np, axis=(1, 2)) > thresh)[0]
         if len(rows) > 0:
             if len(rows) < img.width:
                 first_row = int((img.height - img.width) / 2)

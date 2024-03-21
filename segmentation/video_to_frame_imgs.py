@@ -5,12 +5,13 @@ import tqdm
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 4
+video_idx = 2
 video_name = videos[video_idx]
 video_path = video_folder+video_name
 frames_output_dir = Path(f'SegmentationDS/{video_name}/frames')
 print("Making frames for video: ", video_name, "...")
-
+# import sys
+# sys.exit()
 if not os.path.exists(frames_output_dir):
     frames_output_dir.mkdir(parents=True, exist_ok=True)
 
