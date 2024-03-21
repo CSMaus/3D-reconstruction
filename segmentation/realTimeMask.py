@@ -33,7 +33,7 @@ def resize_image(img):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2
+video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -63,7 +63,7 @@ def update_frame_idx(val):
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
 
-cap = cv2.VideoCapture(video_folder + videos[2])
+cap = cv2.VideoCapture(video_folder + videos[video_idx])
 if not cap.isOpened():
     print("Error: Could not open video.")
     exit()

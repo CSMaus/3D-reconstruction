@@ -32,7 +32,7 @@ def resize_image(img):
 
 num_pixels = 256
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print("Device: ", device)
 model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
 model.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-21_14-39.pth'), strict=False)  # , map_location='cpu'
