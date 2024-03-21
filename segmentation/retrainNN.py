@@ -9,8 +9,7 @@ from torch import nn
 from torchvision import models
 from datetime import datetime
 import time
-
-num_pixels = 256
+from torch.nn.parallel import DataParallel
 
 
 class WeldDataset(Dataset):
@@ -79,19 +78,22 @@ class WeldDataset(Dataset):
 
 def get_deeplabv3_pretrained_model(num_classes):
     model = deeplabv3_resnet101(pretrained=True)  # 50
-    model.classifier[4] = nn.Conv2d(num_pixels, num_classes, kernel_size=(1, 1), stride=(1, 1))
+    model.classifier[4] = nn.Conv2d(246, num_classes, kernel_size=(1, 1), stride=(1, 1))
     return model
 
 
+# always use 256. otherwise the predictions would be very bad
+num_pixels = 256
 time_start = time.time()
 print('Start script at: ', time_start)
 transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
-
-img_dir = 'SegmentationDS/frames/'
-mask_dir = 'SegmentationDS/masks/'
+label_type = 'Electrode'  # 'CentralWeld'
+img_dir = f'SegmentationDS/{label_type}/frames/'
+mask_dir = f'SegmentationDS/{label_type}/masks/'
+print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
 dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
@@ -100,15 +102,19 @@ model = deeplabv3_resnet101(pretrained=True)  # 50
 model.classifier[4] = nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using {device} device")
+'''if torch.cuda.device_count() > 1:
+    print("Use", torch.cuda.device_count(), "GPUs")
+    model = DataParallel(model)'''
 model = model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-num_epochs = 50
+num_epochs = 30
 loss_history = []
 for epoch in range(num_epochs):
     model.train()
+    print("Model training epoch:", epoch, "\nTraining...")
     for images, masks in dataloader:
         images = images.to(device)
         masks = masks.to(device)
@@ -122,14 +128,14 @@ for epoch in range(num_epochs):
     loss_history.append(loss.item())
 
 current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-torch.save(model.state_dict(), f'retrained_deeplabv3_resnet101-{current_date}.pth')
+torch.save(model.state_dict(), f'models/{label_type}-deeplabv3_resnet101-{current_date}.pth')
 
 
-filename = f"training_history-deeplabv3_resnet101-{current_date}.txt"
+filename = f"histories/{label_type}-training_history-deeplabv3_resnet101-{current_date}.txt"
 with open(filename, 'w') as f:
     for epoch, loss in enumerate(loss_history, 1):
         f.write(f"Epoch {epoch}, Loss: {loss}\n")
 
 time_end = time.time()
 print('End script at: ', time_end)
-print('All computations took: ', time_end - time_start)
+print('All computations took: ', (time_end - time_start)/60, "min")

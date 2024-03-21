@@ -4,7 +4,7 @@ from PIL import Image, ImageOps
 import numpy as np
 import cv2
 import torchvision
-num_pixels = 256
+import os
 
 
 def resize_image(img):
@@ -30,11 +30,12 @@ def resize_image(img):
     return img
 
 
+num_pixels = 256
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1))
-model.load_state_dict(torch.load('retrained_deeplabv3_resnet101-2024-03-19_16-39.pth'), strict=False)  # , map_location='cpu'
+model.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
+model.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-21_14-39.pth'), strict=False)  # , map_location='cpu'
 model = model.to(device)
 model.eval()  # to predict - evaluation mode
 
@@ -43,7 +44,9 @@ transform = T.Compose([
     T.ToTensor(),
 ])
 
-input_image_path = 'frame_02-19-11_Camera01_1007.jpg'
+imgs_path = "SegmentationDS/Weld_Video_2023-04-20_02-34-42_Camera02.avi.avi/frames/"
+imgs = os.listdir(os.path.join(imgs_path))
+input_image_path = 'frame_7530.jpg'  # imgs_path+imgs[0]  #
 image = Image.open(input_image_path).convert("RGB")
 image = resize_image(image)
 original_image_np = np.array(image)
