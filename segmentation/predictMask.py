@@ -46,7 +46,7 @@ transform = T.Compose([
 
 imgs_path = "SegmentationDS/Weld_Video_2023-04-20_02-34-42_Camera02.avi.avi/frames/"
 imgs = os.listdir(os.path.join(imgs_path))
-input_image_path = 'frame_7530.jpg'  # imgs_path+imgs[0]  #
+input_image_path = 'frame_0010.jpg'  # imgs_path+imgs[0]  #
 image = Image.open(input_image_path).convert("RGB")
 image = resize_image(image)
 original_image_np = np.array(image)

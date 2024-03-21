@@ -33,22 +33,22 @@ def resize_image(img):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/retrained_deeplabv3_resnet101-2024-03-21_13-11.pth', map_location='cpu'),
+model_weld.load_state_dict(torch.load('models/retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-21_14-39.pth',
-                                           map_location='cpu'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-21_14-39.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -106,7 +106,7 @@ def predict_mask(frame):
 
     colored_mask = np.zeros_like(original_image_np)
     colored_mask[predicted_mask_weld_resized > 0] = [0, 255, 0]
-    colored_mask[predicted_mask_electrode_resized > 0] = [0, 0, 255]
+    colored_mask[predicted_mask_electrode_resized > 0] = [255, 0, 255]
     overlayed_image = cv2.addWeighted(original_image_np, 1, colored_mask, 0.5, 0)
 
     return overlayed_image
@@ -118,7 +118,7 @@ while True:
         print("Error: Could not read frame.")
         break
     # to play video normally after seeking comment out
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+    # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
     frame = predict_mask(frame)
     cv2.imshow(video_name, frame)

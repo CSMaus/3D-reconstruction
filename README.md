@@ -1,6 +1,17 @@
 # 3D-reconstruction
 Attempts to create 3D reconstruction app (web or not) for small things (not rooms)
 
+# How to install CUDA
+
+CUDA installation guide:
+
+FIRST OF ALL: Check if your GPU is support CUDA, then follow this steps:
+1. Nvidia driver for your GPU: https://www.nvidia.com/download/index.aspx
+2. Cuda 11.6 (for example): https://marketplace.visualstudio.com/items?itemName=NVIDIA.NvNsightToolsVSIntegration
+3. cuDNN archive 8.6 for 11.6 (compatible, for example)
+4. NVIDIA Nsight Integration (64-bit): https://marketplace.visualstudio.com/items?itemName=NVIDIA.NvNsightToolsVSIntegration
+5. run in cmd (if you already installed python): `pip3 install torch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 --extra-index-url https://download.pytorch.org/whl/cu116`
+
 ### Creating depth map in reil-time using CPU or cuda 
 (depends on what you have)
 Using simple algorithm similar procedural height map generation and then terrain 
