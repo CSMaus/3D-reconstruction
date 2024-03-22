@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
-file_path = 'histories/training_history-deeplabv3_resnet101-2024-03-21_12-07.txt'
-# file_path = 'histories/Electrode-training_history-deeplabv3_resnet101-2024-03-22_10-42.txt'
+# file_path = 'histories/CentralWeld-training_history-deeplabv3_resnet101-2024-03-22_12-19.txt'
+file_path = 'histories/Electrode-training_history-deeplabv3_resnet101-2024-03-22_13-30.txt'
 
 epochs = []
 losses = []
@@ -16,7 +16,7 @@ with open(file_path, 'r') as file:
             losses.append(loss)
 
 plt.figure(figsize=(8, 5))
-plt.plot(epochs, losses, marker='o', linestyle='-', color='b', label='Training Loss')
+plt.plot(epochs, losses, marker='o', linestyle='-', color='g', label='Training Loss')
 plt.title('Training Loss Over Epochs for Central Weld')  # Electrode
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
