@@ -38,7 +38,7 @@ def resize_image(img):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
