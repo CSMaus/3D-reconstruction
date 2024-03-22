@@ -9,6 +9,11 @@ from PIL import Image, ImageOps
 import numpy as np
 from datetime import datetime
 import time
+import torchviz
+from torchviz import make_dot
+import sys
+from torchview import draw_graph
+from graphviz import Digraph
 
 
 class WeldDataset(Dataset):
@@ -138,6 +143,29 @@ class UNet(nn.Module):
         return out
 
 
+def print_unet_summary(model):
+    print("U-Net Architecture Summary:")
+    print("----------------------------")
+    print("Input Layer: Accepts images with 3 channels.")
+    print("\nEncoder (Downsampling Path):")
+    downsampling_layers = [model.dconv_down1, model.dconv_down2, model.dconv_down3, model.dconv_down4]
+    for idx, layer in enumerate(downsampling_layers, start=1):
+        print(
+            f"  Downsample Block {idx}: Double Convolution and Max Pooling (Output Channels: {layer.double_conv[1].num_features})")
+
+    print("\nBottleneck:")
+    print(f"  Bottleneck Convolution Block (Output Channels: {model.dconv_down4.double_conv[1].num_features})")
+
+    print("\nDecoder (Upsampling Path):")
+    upsampling_layers = [model.dconv_up3, model.dconv_up2, model.dconv_up1]
+    for idx, layer in enumerate(upsampling_layers, start=3, reverse=True):
+        print(
+            f"  Upsample Block {idx}: Double Convolution and Upsample (Concatenated Channels: {layer.double_conv[1].num_features // 2})")
+
+    print("\nOutput Layer:")
+    print(f"  Final Convolution (Output Channels: {model.conv_last.out_channels}, representing classes)")
+
+
 def main():
     time_start = time.time()
     print('Start script at: ', time_start)
@@ -158,6 +186,17 @@ def main():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(n_class=1).to(device)
+
+    # model_graph = draw_graph(model, input_size=(1, 3, 224, 224), expand_nested=True)
+    # model_graph.visual_graph
+    print_unet_summary(model)
+    sys.exit()
+    # images, masks = next(iter(train_loader))
+    # images = images.to(device)
+    # yhat = model(images)
+    # make_dot(yhat, params=dict(list(model.named_parameters()))).render("UNet_torchviz", format="png")
+    # sys.exit()
+
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     criterion = nn.BCEWithLogitsLoss()
