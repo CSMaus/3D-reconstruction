@@ -6,6 +6,7 @@ import time
 import torch
 import torchvision
 import torchvision.transforms as T
+import imageio
 thresh = 2
 
 
@@ -13,7 +14,7 @@ def resize_image(img):
     image_np = np.array(img)
     top_row = np.mean(image_np[0, :, :])
     bottom_row = np.mean(image_np[-1, :, :])
-    if top_row < thresh and bottom_row < thresh:
+    '''if top_row < thresh and bottom_row < thresh:
         rows = np.where(np.mean(image_np, axis=(1, 2)) > thresh)[0]
         if len(rows) > 0:
             if len(rows) < img.width:
@@ -23,11 +24,11 @@ def resize_image(img):
             else:
                 first_row, last_row = rows[0], rows[-1]
                 img = img.crop((0, first_row, img.width, last_row))
-    else:
-        delta_w = img.height - img.width
-        delta_h = 0
-        padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-        img = ImageOps.expand(img, padding, fill=0)
+    else:'''
+    delta_w = img.height - img.width
+    delta_h = 0
+    padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+    img = ImageOps.expand(img, padding, fill=0)
 
     return img
 
@@ -41,15 +42,15 @@ num_pixels = 256
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_weld.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_weld.load_state_dict(torch.load('models/retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_electrode.classifier[4] = torch.nn.Conv2d(256, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-21_14-39.pth'), strict=False)  # , map_location='cpu'
+model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-22_10-42.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -66,7 +67,7 @@ def update_frame_idx(val):
 
 cap = cv2.VideoCapture(video_folder + videos[video_idx])
 if not cap.isOpened():
-    print("Error: Could not open video.")
+    print("Video end")
     exit()
 
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -113,6 +114,8 @@ def predict_mask(frame):
     return overlayed_image
 
 
+frames_for_gif = []
+frame_counter = 0
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -121,12 +124,19 @@ while True:
     # to play video normally after seeking comment out
     # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
-    frame = predict_mask(frame)
-    cv2.imshow(video_name, frame)
+    frame_counter += 1
+    if frame_counter % 50 == 0:
+        processed_frame = predict_mask(frame)
+        processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+        frames_for_gif.append(processed_frame_rgb)
+        cv2.imshow(video_name, processed_frame)
 
     key = cv2.waitKey(1) & 0xFF
     if key == 27:  # 'Esc' to exit
         break
+
+gif_path = os.path.join("Gifs/", f'{video_name}.gif')
+imageio.mimsave(gif_path, frames_for_gif, fps=25)
 
 cap.release()
 cv2.destroyAllWindows()

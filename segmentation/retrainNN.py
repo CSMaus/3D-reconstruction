@@ -35,7 +35,7 @@ class WeldDataset(Dataset):
         # i e if they contain almost zero values
         top_row = np.mean(image_np[0, :, :])
         bottom_row = np.mean(image_np[-1, :, :])
-        if top_row < thresh and bottom_row < thresh:
+        '''if top_row < thresh and bottom_row < thresh:
             rows = np.where(np.mean(image_np, axis=(1, 2)) > thresh)[0]
             if len(rows) > 0:
                 if len(rows) < image.width:
@@ -47,12 +47,12 @@ class WeldDataset(Dataset):
                     first_row, last_row = rows[0], rows[-1]
                     image = image.crop((0, first_row, image.width, last_row))
                     mask = mask.crop((0, first_row, mask.width, last_row))
-        else:
-            delta_w = image.height - image.width
-            delta_h = 0
-            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-            image = ImageOps.expand(image, padding, fill=0)
-            mask = ImageOps.expand(mask, padding, fill=0)
+        else:'''
+        delta_w = image.height - image.width
+        delta_h = 0
+        padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+        image = ImageOps.expand(image, padding, fill=0)
+        mask = ImageOps.expand(mask, padding, fill=0)
 
         return image, mask
 
