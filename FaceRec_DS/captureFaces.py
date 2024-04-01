@@ -3,7 +3,7 @@
 import cv2
 import os
 
-folder = "captured_faces"
+folder = "test_depth_images/"
 if not os.path.exists(folder):
     os.makedirs(folder)
 
