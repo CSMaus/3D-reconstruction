@@ -231,7 +231,7 @@ def main():
 
     time_end = time.time()
     print('End script at: ', time_end)
-    print('All computations took: ', time_end - time_start)
+    print('All computations took: ', (time_end - time_start)/60, "min")
 
 
 if __name__ == '__main__':

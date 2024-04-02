@@ -79,12 +79,12 @@ class WeldDataset(Dataset):
 
 def get_deeplabv3_pretrained_model(num_classes):
     model = deeplabv3_resnet101(pretrained=True)  # 50
-    model.classifier[4] = nn.Conv2d(246, num_classes, kernel_size=(1, 1), stride=(1, 1))
+    model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=(1, 1), stride=(1, 1))
     return model
 
 
 # always use 256. otherwise the predictions would be very bad
-num_pixels = 246
+num_pixels = 256
 time_start = time.time()
 print('Start script at: ', time_start)
 transform = T.Compose([
@@ -96,22 +96,22 @@ img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
 model.classifier[4] = nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using {device} device")
-'''if torch.cuda.device_count() > 1:
+if torch.cuda.device_count() > 1:
     print("Use", torch.cuda.device_count(), "GPUs")
-    model = DataParallel(model)'''
+    model = DataParallel(model)
 model = model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-num_epochs = 30
+num_epochs = 50
 loss_history = []
 for epoch in range(num_epochs):
     model.train()

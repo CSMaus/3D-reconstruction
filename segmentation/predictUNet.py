@@ -85,7 +85,7 @@ def resize_image(img):
     image_np = np.array(img)
     top_row = np.mean(image_np[0, :, :])
     bottom_row = np.mean(image_np[-1, :, :])
-    if top_row < 5 and bottom_row < 5:
+    '''if top_row < 5 and bottom_row < 5:
         rows = np.where(np.mean(image_np, axis=(1, 2)) > 5)[0]
         if len(rows) > 0:
             if len(rows) < img.width:
@@ -95,11 +95,11 @@ def resize_image(img):
             else:
                 first_row, last_row = rows[0], rows[-1]
                 img = img.crop((0, first_row, img.width, last_row))
-    else:
-        delta_w = img.height - img.width
-        delta_h = 0
-        padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-        img = ImageOps.expand(img, padding, fill=0)
+    else:'''
+    delta_w = img.height - img.width
+    delta_h = 0
+    padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+    img = ImageOps.expand(img, padding, fill=0)
 
     return img
 
@@ -110,9 +110,8 @@ def preprocess_image(image_path):
     original_size = image.size
     image = resize_image(image)
 
-    # Assuming num_pixels is defined elsewhere or you need to set it based on your model's expected input size
     transform = transforms.Compose([
-        transforms.Resize((256, 256)),  # Example resize, adjust to your model's input size
+        transforms.Resize((512, 512)),
         transforms.ToTensor(),
     ])
 
@@ -151,8 +150,8 @@ def main(image_path, model_path):
 
 
 if __name__ == '__main__':
-    image_path = 'frame_0690.jpg'
-    model_path = 'UnetSegmentation_ep10_2024-03-19_17-36.pth'
+    image_path = 'frame_1440.jpg'
+    model_path = 'models/UnetSegmentation_ep10_2024-03-19_17-36.pth'
     main(image_path, model_path)
 
 
