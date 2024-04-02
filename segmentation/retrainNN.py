@@ -96,7 +96,7 @@ img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
