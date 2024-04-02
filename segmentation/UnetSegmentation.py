@@ -225,7 +225,7 @@ def main():
         print(f'Epoch {epoch + 1}, Loss: {epoch_loss / len(train_loader)}')
 
     current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-    model_name = f'UnetSegmentation_ep{epoch + 1}_{current_date}.pth'
+    model_name = f'UnetSegmentation_ep{epoch + 1}-{label_type}-{current_date}.pth'
     torch.save(model.state_dict(), model_name)
     print(f"Final model saved as {model_name}")
 
