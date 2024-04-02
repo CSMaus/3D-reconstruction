@@ -96,20 +96,21 @@ img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
 model.classifier[4] = nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using {device} device")
-if torch.cuda.device_count() > 1:
+# Problem with parallel training. Now will use only one GPU
+'''if torch.cuda.device_count() > 1:
     print("Use", torch.cuda.device_count(), "GPUs")
-    model = DataParallel(model)
+    model = DataParallel(model)'''
 model = model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
 num_epochs = 50
 loss_history = []
