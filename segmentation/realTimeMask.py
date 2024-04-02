@@ -38,7 +38,7 @@ def resize_image(img):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -46,7 +46,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-03-22_12-19.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-02_13-27.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()
@@ -114,6 +114,35 @@ def predict_mask(frame):
     return overlayed_image
 
 
+frame_counter = 0
+
+cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
+cv2.createTrackbar('Frame_i', video_name, 0, frame_count-1, update_frame_idx)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Could not read frame.")
+        break
+    # to play video normally after seeking comment out
+    # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+
+    frame_counter += 1
+    # if frame_counter % 50 == 0:
+    processed_frame = predict_mask(frame)
+    processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+    # frames_for_gif.append(processed_frame_rgb)
+    cv2.imshow(video_name, processed_frame)
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == 27:  # 'Esc' to exit
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+sys.exit()
+
+
 frames_for_gif = []
 frame_counter = 0
 print(f"Preparing gif for {video_name} ...")
@@ -135,35 +164,6 @@ print("gif saved at: ", gif_path)
 cap.release()
 cv2.destroyAllWindows()
 sys.exit()
-
-cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
-cv2.createTrackbar('Frame_i', video_name, 0, frame_count-1, update_frame_idx)
-
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read frame.")
-        break
-    # to play video normally after seeking comment out
-    # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-
-    frame_counter += 1
-    if frame_counter % 50 == 0:
-        processed_frame = predict_mask(frame)
-        processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-        frames_for_gif.append(processed_frame_rgb)
-        cv2.imshow(video_name, processed_frame)
-
-    key = cv2.waitKey(1) & 0xFF
-    if key == 27:  # 'Esc' to exit
-        break
-
-gif_path = os.path.join("Gifs/", f'{video_name}.gif')
-imageio.mimsave(gif_path, frames_for_gif, fps=15)
-print("gif saved at: ", gif_path)
-
-cap.release()
-cv2.destroyAllWindows()
 
 
 

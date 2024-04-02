@@ -84,14 +84,14 @@ def get_deeplabv3_pretrained_model(num_classes):
 
 
 # always use 256. otherwise the predictions would be very bad
-num_pixels = 256
+num_pixels = 246
 time_start = time.time()
 print('Start script at: ', time_start)
 transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
-label_type = 'Electrode'  # 'CentralWeld'
+label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
 img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
@@ -129,7 +129,8 @@ for epoch in range(num_epochs):
     loss_history.append(loss.item())
 
 current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-torch.save(model.state_dict(), f'models/{label_type}-deeplabv3_resnet101-{current_date}.pth')
+model_name = f'models/{label_type}-deeplabv3_resnet101-{current_date}.pth'
+torch.save(model.state_dict(), model_name)
 
 
 filename = f"histories/{label_type}-training_history-deeplabv3_resnet101-{current_date}.txt"
@@ -140,3 +141,5 @@ with open(filename, 'w') as f:
 time_end = time.time()
 print('End script at: ', time_end)
 print('All computations took: ', (time_end - time_start)/60, "min")
+
+print(model_name)

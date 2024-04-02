@@ -8,7 +8,7 @@ import os
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 # video_idx = 2
-video_name = "Weld_Video_2023-04-20_02-34-42_Camera02.avi.avi"
+video_name = "Weld_Video_2023-04-20_01-55-23_Camera01.avi.avi"
 
 video_path = video_folder+video_name
 xml_path = f'Data/Annotations/{video_name[:-8]}-annotations.xml'
@@ -20,7 +20,7 @@ if not os.path.exists(xml_path):
 name_prefix = video_name[22:-8]
 
 # Weld_Video_2023-04-20_02-19-11_Camera01_annotations.xml'
-label_type = 'Electrode'  # 'CentralWeld'
+label_type = 'CentralWeld'  # 'CentralWeld'
 frames_output_dir = Path(f'SegmentationDS/{label_type}/frames/')
 masks_output_dir = Path(f'SegmentationDS/{label_type}/masks/')
 imgs_path = Path(f'SegmentationDS/{video_name}/frames/')

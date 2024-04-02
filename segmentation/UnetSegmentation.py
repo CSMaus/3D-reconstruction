@@ -9,11 +9,13 @@ from PIL import Image, ImageOps
 import numpy as np
 from datetime import datetime
 import time
-import torchviz
+from torch.nn.parallel import DataParallel
+'''import torchviz
 from torchviz import make_dot
 import sys
 from torchview import draw_graph
 from graphviz import Digraph
+'''
 
 
 class WeldDataset(Dataset):
@@ -36,7 +38,7 @@ class WeldDataset(Dataset):
 
         top_row = np.mean(image_np[0, :, :])
         bottom_row = np.mean(image_np[-1, :, :])
-        if top_row < 5 and bottom_row < 5:
+        '''if top_row < 5 and bottom_row < 5:
             rows = np.where(np.mean(image_np, axis=(1, 2)) > 5)[0]
             if len(rows) > 0:
                 if len(rows) < image.width:
@@ -48,12 +50,12 @@ class WeldDataset(Dataset):
                     first_row, last_row = rows[0], rows[-1]
                     image = image.crop((0, first_row, image.width, last_row))
                     mask = mask.crop((0, first_row, mask.width, last_row))
-        else:
-            delta_w = image.height - image.width
-            delta_h = 0
-            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-            image = ImageOps.expand(image, padding, fill=0)
-            mask = ImageOps.expand(mask, padding, fill=0)
+        else:'''
+        delta_w = image.height - image.width
+        delta_h = 0
+        padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+        image = ImageOps.expand(image, padding, fill=0)
+        mask = ImageOps.expand(mask, padding, fill=0)
 
         return image, mask
 
@@ -170,38 +172,42 @@ def main():
     time_start = time.time()
     print('Start script at: ', time_start)
     transform = transforms.Compose([
-        transforms.Resize((256, 256)),
+        transforms.Resize((512, 512)),
         transforms.ToTensor(),
     ])
 
-    img_dir = 'SegmentationDS/frames/'
-    mask_dir = 'SegmentationDS/masks/'
+    label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
+    img_dir = f'SegmentationDS/{label_type}/frames/'
+    mask_dir = f'SegmentationDS/{label_type}/masks/'
     dataset = WeldDataset(img_dir, mask_dir, transform=transform)
     n_val = int(len(dataset) * 0.1)
     n_train = len(dataset) - n_val
     train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
-    train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_set, batch_size=16, shuffle=False, num_workers=4, pin_memory=True, drop_last=True)
+    train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True, drop_last=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = UNet(n_class=1).to(device)
+    model = UNet(n_class=1)
+    if torch.cuda.device_count() > 1:
+        print("Use", torch.cuda.device_count(), "GPUs")
+        model = DataParallel(model)
+    model = model.to(device)
 
     # model_graph = draw_graph(model, input_size=(1, 3, 224, 224), expand_nested=True)
     # model_graph.visual_graph
-    print_unet_summary(model)
-    sys.exit()
+    # print_unet_summary(model)
+    # sys.exit()
     # images, masks = next(iter(train_loader))
     # images = images.to(device)
     # yhat = model(images)
     # make_dot(yhat, params=dict(list(model.named_parameters()))).render("UNet_torchviz", format="png")
     # sys.exit()
 
-
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     criterion = nn.BCEWithLogitsLoss()
 
-    epochs = 10
+    epochs = 30
     for epoch in range(epochs):
         model.train()
         epoch_loss = 0
@@ -219,8 +225,9 @@ def main():
         print(f'Epoch {epoch + 1}, Loss: {epoch_loss / len(train_loader)}')
 
     current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-    torch.save(model.state_dict(), f'UnetSegmentation_ep{epoch + 1}_{current_date}.pth')
-    print("Final model saved as final_model_epoch_{}.pth".format(epoch + 1))
+    model_name = f'UnetSegmentation_ep{epoch + 1}_{current_date}.pth'
+    torch.save(model.state_dict(), model_name)
+    print(f"Final model saved as {model_name}")
 
     time_end = time.time()
     print('End script at: ', time_end)
