@@ -12,6 +12,8 @@ import imageio
 from tqdm import tqdm
 thresh = 2
 
+# need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
+
 
 def resize_image(img):
     image_np = np.array(img)
@@ -38,7 +40,7 @@ def resize_image(img):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -46,7 +48,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-02_18-45.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()

@@ -110,7 +110,7 @@ print(f"Using {device} device")
 model = model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 num_epochs = 50
 loss_history = []
