@@ -91,7 +91,7 @@ transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
-label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
+label_type = 'Electrode'  # 'CentralWeld' 'Electrode'
 img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
