@@ -70,6 +70,15 @@ for track in root.findall(".//track"):
             mask_path = masks_output_dir / f"mask_{name_prefix}_{str(frame_index)}.png"
             cv2.imwrite(str(frame_path), frame)
             cv2.imwrite(str(mask_path), mask)
+
+            # flip frame and mask along vertical axis
+            frame = cv2.flip(frame, 1)
+            mask = cv2.flip(mask, 1)
+            frame_path = frames_output_dir / f"frameF_{name_prefix}_{str(frame_index)}.jpg"
+            mask_path = masks_output_dir / f"maskF_{name_prefix}_{str(frame_index)}.png"
+            cv2.imwrite(str(frame_path), frame)
+            cv2.imwrite(str(mask_path), mask)
+
             num_saved_imgs += 1
 cap.release()
 
