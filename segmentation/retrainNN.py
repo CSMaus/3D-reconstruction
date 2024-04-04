@@ -24,37 +24,40 @@ class WeldDataset(Dataset):
         return len(self.images)
 
     @staticmethod
-    def square_image_and_mask(image, mask):
+    def square_image_and_mask(img, mask):
         """
         Adjusts the image and mask to make them square: trimming or padding before resizing.
         """
-        image_np = np.array(image)
+        image_np = np.array(img)
         mask_np = np.array(mask)
+        max_pixel_values = np.max(image_np, axis=(1, 2))
+        height, width = image_np.shape[:2]
 
-        # determine if top and bottom of the image can be trimmed
-        # i e if they contain almost zero values
+        bottom_crop = 0
+        while max_pixel_values[-(bottom_crop + 1)] < thresh and (height - bottom_crop) > width:
+            bottom_crop += 1
 
-        rows_to_consider = np.max(image_np, axis=(1, 2)) < thresh
-        top_index, bottom_index = 0, len(rows_to_consider) - 1
+        top_crop = 0
+        while max_pixel_values[top_crop] < thresh and (height - bottom_crop - top_crop) > width:
+            top_crop += 1
 
-        while bottom_index > top_index and rows_to_consider[bottom_index] and image_np.shape[0] - (
-                bottom_index - top_index + 1) >= image_np.shape[1]:
-            bottom_index -= 1
-
-        while top_index < bottom_index and rows_to_consider[top_index] and image_np.shape[0] - (
-                bottom_index - top_index + 1) >= image_np.shape[1]:
-            top_index += 1
-
-        if top_index > 0 or bottom_index < len(rows_to_consider) - 1:
-            image = image.crop((0, top_index, image.width, bottom_index + 1))
-            mask = mask.crop((0, top_index, mask.width, bottom_index + 1))
+        if bottom_crop > 0 or top_crop > 0:
+            img = img.crop((0, top_crop, width, height - bottom_crop))
+            mask = mask.crop((0, top_crop, width, height - bottom_crop))
+            was_cropped = True
         else:
-            delta_w = abs(image.width - image.height)
-            delta_h = 0
-            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+            was_cropped = False
 
-            image = ImageOps.expand(image, padding, fill=0)
-            mask = ImageOps.expand(mask, padding, fill=0)
+        new_height, new_width = img.size[1], img.size[0]
+
+        if new_height > new_width:
+            padding = ((new_height - new_width) // 2, 0)
+            img = ImageOps.expand(img, (padding[0], 0, new_height - new_width - padding[0], 0), fill=0)
+            mask = ImageOps.expand(mask, (padding[0], 0, new_height - new_width - padding[0], 0), fill=0)
+
+        # if img.size[0] == img.size[1]:
+        #     img = img.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
+        #     mask = mask.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
 
         # this is wrong. Here should be only rows, which are follow one by one. Start from bottom,
         # and if we have enough almost zeroes rows in the bottom to make image square, then we can cut them only
@@ -62,26 +65,8 @@ class WeldDataset(Dataset):
         # if cut rows from top and bottom isn't enough to make square image, then we need to add zero-padding
         # to left and right
         # almost zero rows are those, which have MAX value less than threshold
-        '''if top_row < thresh and bottom_row < thresh:
-            rows = np.where(np.max(image_np, axis=(1, 2)) > thresh)[0]
-            if len(rows) > 0:
-                if len(rows) < image.width:
-                    first_row = int((image.height - image.width)/2)
-                    last_row = first_row + image.width
-                    image = image.crop((0, first_row, image.width, last_row))
-                    mask = mask.crop((0, first_row, mask.width, last_row))
-                else:
-                    first_row, last_row = rows[0], rows[-1]
-                    image = image.crop((0, first_row, image.width, last_row))
-                    mask = mask.crop((0, first_row, mask.width, last_row))
-        else:
-            delta_w = image.height - image.width
-            delta_h = 0
-            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-            image = ImageOps.expand(image, padding, fill=0)
-            mask = ImageOps.expand(mask, padding, fill=0)'''
 
-        return image, mask
+        return img, mask
 
     def __getitem__(self, idx):
         img_name = self.images[idx]
