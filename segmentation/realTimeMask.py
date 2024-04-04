@@ -38,6 +38,42 @@ def resize_image(img):
     return img
 
 
+def preprocess_image_for_prediction(img, thresh=10):
+    """
+    Adjusts the image to make it square by cropping or padding, similar to the preprocessing during training.
+    Returns the processed image and the cropping or padding details.
+    """
+    image_np = np.array(img)
+
+    rows_to_consider = np.max(image_np, axis=(1, 2)) < thresh
+    top_index, bottom_index = 0, len(rows_to_consider) - 1
+
+    while bottom_index > top_index and rows_to_consider[bottom_index] and image_np.shape[0] - (
+            bottom_index - top_index + 1) >= image_np.shape[1]:
+        bottom_index -= 1
+
+    while top_index < bottom_index and rows_to_consider[top_index] and image_np.shape[0] - (
+            bottom_index - top_index + 1) >= image_np.shape[1]:
+        top_index += 1
+
+    crop_or_pad_details = {'top_index': top_index, 'bottom_index': bottom_index + 1, 'original_height': img.height, 'original_width': img.width, 'was_cropped': False, 'was_padded': False}
+
+    if top_index > 0 or bottom_index < len(rows_to_consider) - 1:
+        img = img.crop((0, top_index, img.width, bottom_index + 1))
+        crop_or_pad_details['was_cropped'] = True
+    else:
+        delta_w = abs(img.width - img.height)
+        if img.width < img.height:
+            padding = (delta_w // 2, 0, delta_w - (delta_w // 2), 0)
+        else:
+            padding = (0, delta_w // 2, 0, delta_w - (delta_w // 2))
+        img = ImageOps.expand(img, padding, fill=0)
+        crop_or_pad_details['padding'] = padding
+        crop_or_pad_details['was_padded'] = True
+
+    return img, crop_or_pad_details
+
+
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
@@ -55,7 +91,7 @@ model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-03-22_13-30.pth'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-03_17-35.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -79,7 +115,54 @@ frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 video_name = videos[video_idx]
 
 
-def predict_mask(frame):
+def predict_mask(frame, thresh=10):
+    """
+    I'll add it later
+    """
+    image = Image.fromarray(frame).convert("RGB")
+    processed_image, details = preprocess_image_for_prediction(image, thresh)
+
+    image_tensor = transform(processed_image).unsqueeze(0).to(device)
+    with torch.no_grad():
+        output_weld = model_weld(image_tensor)['out'][0][0]
+        output_electrode = model_electrode(image_tensor)['out'][0][0]
+        predicted_mask_weld = output_weld.sigmoid().cpu().numpy() > 0.5
+        predicted_mask_electrode = output_electrode.sigmoid().cpu().numpy() > 0.5
+
+    processed_dims = (processed_image.width, processed_image.height)
+    mask_weld_resized = cv2.resize(predicted_mask_weld.astype(np.float32), processed_dims, interpolation=cv2.INTER_NEAREST)
+    mask_electrode_resized = cv2.resize(predicted_mask_electrode.astype(np.float32), processed_dims, interpolation=cv2.INTER_NEAREST)
+
+    original_height, original_width = details['original_height'], details['original_width']
+
+    canvas_weld = np.zeros((original_height, original_width), dtype=np.float32)
+    canvas_electrode = np.zeros((original_height, original_width), dtype=np.float32)
+
+    if details['was_cropped']:
+        vertical_pad_top = details['top_index']
+        vertical_pad_bottom = original_height - details['bottom_index']
+        canvas_weld[vertical_pad_top:original_height-vertical_pad_bottom, :] = mask_weld_resized
+        canvas_electrode[vertical_pad_top:original_height-vertical_pad_bottom, :] = mask_electrode_resized
+    if details['was_padded']:
+        horizontal_pad = (processed_image.width - original_width) // 2
+        canvas_weld[:, :] = mask_weld_resized[:, horizontal_pad:horizontal_pad+original_width]
+        canvas_electrode[:, :] = mask_electrode_resized[:, horizontal_pad:horizontal_pad+original_width]
+
+    canvas_weld = (canvas_weld * 255).astype(np.uint8)
+    canvas_electrode = (canvas_electrode * 255).astype(np.uint8)
+
+    overlay_weld = np.zeros_like(frame)
+    overlay_electrode = np.zeros_like(frame)
+    overlay_weld[canvas_weld > 0] = [0, 255, 0]
+    overlay_electrode[canvas_electrode > 0] = [255, 0, 255]
+
+    overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
+    overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
+
+    return overlayed_image
+
+
+def predict_mask_old(frame):
 
     image = Image.fromarray(frame).convert("RGB")
     # image = Image.open(input_image_path).convert("RGB")
