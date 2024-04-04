@@ -13,6 +13,7 @@ from tqdm import tqdm
 thresh = 2
 
 # need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
+pixValThresh = 50
 
 
 def resize_image(img):
@@ -36,91 +37,19 @@ def resize_image(img):
     img = ImageOps.expand(img, padding, fill=0)
 
     return img
-
-
-def preprocess_image_for_prediction(img, thresh=10):
-    """
-    Adjusts the image to make it square by cropping or padding, similar to the preprocessing during training.
-    Returns the processed image and the cropping or padding details.
-    """
-    image_np = np.array(img)
-
-    rows_to_consider = np.max(image_np, axis=(1, 2)) < thresh
-    top_index, bottom_index = 0, len(rows_to_consider) - 1
-
-    while bottom_index > top_index and rows_to_consider[bottom_index] and image_np.shape[0] - (
-            bottom_index - top_index + 1) >= image_np.shape[1]:
-        bottom_index -= 1
-
-    while top_index < bottom_index and rows_to_consider[top_index] and image_np.shape[0] - (
-            bottom_index - top_index + 1) >= image_np.shape[1]:
-        top_index += 1
-
-    crop_or_pad_details = {'top_index': top_index, 'bottom_index': bottom_index + 1, 'original_height': img.height, 'original_width': img.width, 'was_cropped': False, 'was_padded': False}
-
-    if top_index > 0 or bottom_index < len(rows_to_consider) - 1:
-        img = img.crop((0, top_index, img.width, bottom_index + 1))
-        crop_or_pad_details['was_cropped'] = True
-    else:
-        delta_w = abs(img.width - img.height)
-        if img.width < img.height:
-            padding = (delta_w // 2, 0, delta_w - (delta_w // 2), 0)
-        else:
-            padding = (0, delta_w // 2, 0, delta_w - (delta_w // 2))
-        img = ImageOps.expand(img, padding, fill=0)
-        crop_or_pad_details['padding'] = padding
-        crop_or_pad_details['was_padded'] = True
-
-    return img, crop_or_pad_details
-
-
-video_folder = "Data/Weld_VIdeo/"
-videos = os.listdir(os.path.join(video_folder))
-video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
-frame_idx = 0
-
-num_pixels = 256
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Device: ", device)
-model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-03_15-32.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
-                           strict=False)  # , map_location='cpu'
-model_weld = model_weld.to(device)
-model_weld.eval()
-
-model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-03_17-35.pth'), strict=False)  # , map_location='cpu'
-model_electrode = model_electrode.to(device)
-model_electrode.eval()
-transform = T.Compose([
-    T.Resize((num_pixels, num_pixels)),
-    T.ToTensor(),
-])
-
-
-def update_frame_idx(val):
-    global frame_idx
-    frame_idx = max(0, val)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-
-
-cap = cv2.VideoCapture(video_folder + videos[video_idx])
-if not cap.isOpened():
-    print("Video end")
-    exit()
-
-frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-video_name = videos[video_idx]
-
-
-def predict_mask(frame, thresh=10):
+def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
     """
     I'll add it later
     """
     image = Image.fromarray(frame).convert("RGB")
     processed_image, details = preprocess_image_for_prediction(image, thresh)
+
+    if isShowImages:
+        # save original and processed images
+        if not os.path.exists('test'):
+            os.makedirs('test')
+        processed_image.save('test/processed_image.jpg')
+        image.save('test/original_image.jpg')
 
     image_tensor = transform(processed_image).unsqueeze(0).to(device)
     with torch.no_grad():
@@ -199,6 +128,145 @@ def predict_mask_old(frame):
     return overlayed_image
 
 
+def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
+    """
+    Adjusts the image by cropping rows from bottom and/or top if the maximum pixel value in the row is below the threshold,
+    and if needed, pads the image to make it square before resizing to the desired size.
+    """
+    image_np = np.array(img)
+    max_pixel_values = np.max(image_np, axis=(1, 2))
+    height, width = image_np.shape[:2]
+
+    bottom_crop = 0
+    while max_pixel_values[-(bottom_crop + 1)] < thresh and (height - bottom_crop) > width:
+        bottom_crop += 1
+
+    top_crop = 0
+    while max_pixel_values[top_crop] < thresh and (height - bottom_crop - top_crop) > width:
+        top_crop += 1
+
+    if bottom_crop > 0 or top_crop > 0:
+        img = img.crop((0, top_crop, width, height - bottom_crop))
+        was_cropped = True
+    else:
+        was_cropped = False
+
+    new_height, new_width = img.size[1], img.size[0]
+
+    if new_height > new_width:
+        padding = ((new_height - new_width) // 2, 0)
+        img = ImageOps.expand(img, (padding[0], 0, new_height - new_width - padding[0], 0), fill=0)
+        was_padded = True
+    else:
+        was_padded = False
+
+    if img.size[0] == img.size[1]:
+        img = img.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
+
+    crop_or_pad_details = {
+        'top_crop': top_crop,
+        'bottom_crop': bottom_crop,
+        'was_cropped': was_cropped,
+        'was_padded': was_padded,
+        'original_height': height,
+        'original_width': width
+    }
+
+    return img, crop_or_pad_details
+
+
+video_folder = "Data/Weld_VIdeo/"
+videos = os.listdir(os.path.join(video_folder))
+video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+frame_idx = 0
+
+num_pixels = 256
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Device: ", device)
+model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
+model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-03_15-32.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+                           strict=False)  # , map_location='cpu'
+model_weld = model_weld.to(device)
+model_weld.eval()
+
+model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
+model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-03_17-35.pth'), strict=False)  # , map_location='cpu'
+model_electrode = model_electrode.to(device)
+model_electrode.eval()
+transform = T.Compose([
+    T.Resize((num_pixels, num_pixels)),
+    T.ToTensor(),
+])
+
+
+def update_frame_idx(val):
+    global frame_idx
+    frame_idx = max(0, val)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+
+
+cap = cv2.VideoCapture(video_folder + videos[video_idx])
+if not cap.isOpened():
+    print("Video end")
+    exit()
+
+frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+video_name = videos[video_idx]
+
+
+def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
+    """
+    TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when
+    padding was made)
+    """
+    image = Image.fromarray(frame).convert("RGB")
+    processed_image, details = preprocess_image_for_prediction(image, thresh)
+
+    if isShowImages:
+        if not os.path.exists('test'):
+            os.makedirs('test')
+        processed_image.save('test/processed_image1.jpg')
+        image.save('test/original_image1.jpg')
+
+    image_tensor = transform(processed_image).unsqueeze(0).to(device)
+    with torch.no_grad():
+        output_weld = model_weld(image_tensor)['out'][0][0]
+        output_electrode = model_electrode(image_tensor)['out'][0][0]
+        predicted_mask_weld = output_weld.sigmoid().cpu().numpy() > 0.5
+        predicted_mask_electrode = output_electrode.sigmoid().cpu().numpy() > 0.5
+
+    cropped_height = details['original_height'] - details['top_crop'] - details['bottom_crop']
+    cropped_width = details['original_width']
+    mask_weld_resized = cv2.resize(predicted_mask_weld.astype(np.float32), (cropped_width, cropped_height),
+                                   interpolation=cv2.INTER_NEAREST)
+    mask_electrode_resized = cv2.resize(predicted_mask_electrode.astype(np.float32), (cropped_width, cropped_height),
+                                        interpolation=cv2.INTER_NEAREST)
+
+    canvas_weld = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
+    canvas_electrode = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
+
+    vertical_start = details['top_crop']
+    vertical_end = details['original_height'] - details['bottom_crop']
+
+    canvas_weld[vertical_start:vertical_end, :] = mask_weld_resized
+    canvas_electrode[vertical_start:vertical_end, :] = mask_electrode_resized
+
+    canvas_weld = (canvas_weld * 255).astype(np.uint8)
+    canvas_electrode = (canvas_electrode * 255).astype(np.uint8)
+
+    overlay_weld = np.zeros_like(frame)
+    overlay_electrode = np.zeros_like(frame)
+    overlay_weld[canvas_weld > 0] = [0, 255, 0]
+    overlay_electrode[canvas_electrode > 0] = [255, 0, 255]
+
+    overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
+    overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
+
+    return overlayed_image
+
+
 frame_counter = 0
 
 cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
@@ -216,6 +284,10 @@ while True:
     # if frame_counter % 50 == 0:
     processed_frame = predict_mask(frame)
     processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+
+    if frame_counter == 5:
+        processed_frame = predict_mask(frame, pixValThresh, True)
+        print("Frame processed")
     # frames_for_gif.append(processed_frame_rgb)
     cv2.imshow(video_name, processed_frame)
 

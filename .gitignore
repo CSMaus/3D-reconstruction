@@ -157,3 +157,4 @@ dmypy.json
 *.txt
 *.gif
 *.docx
+/segmentation/UNet_torchviz
