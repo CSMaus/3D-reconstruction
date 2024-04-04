@@ -10,7 +10,7 @@ from torchvision import models
 from datetime import datetime
 import time
 from torch.nn.parallel import DataParallel
-thresh = 2
+thresh = 10
 
 
 class WeldDataset(Dataset):
@@ -33,10 +33,37 @@ class WeldDataset(Dataset):
 
         # determine if top and bottom of the image can be trimmed
         # i e if they contain almost zero values
-        top_row = np.mean(image_np[0, :, :])
-        bottom_row = np.mean(image_np[-1, :, :])
+
+        rows_to_consider = np.max(image_np, axis=(1, 2)) < thresh
+        top_index, bottom_index = 0, len(rows_to_consider) - 1
+
+        while bottom_index > top_index and rows_to_consider[bottom_index] and image_np.shape[0] - (
+                bottom_index - top_index + 1) >= image_np.shape[1]:
+            bottom_index -= 1
+
+        while top_index < bottom_index and rows_to_consider[top_index] and image_np.shape[0] - (
+                bottom_index - top_index + 1) >= image_np.shape[1]:
+            top_index += 1
+
+        if top_index > 0 or bottom_index < len(rows_to_consider) - 1:
+            image = image.crop((0, top_index, image.width, bottom_index + 1))
+            mask = mask.crop((0, top_index, mask.width, bottom_index + 1))
+        else:
+            delta_w = abs(image.width - image.height)
+            delta_h = 0
+            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+
+            image = ImageOps.expand(image, padding, fill=0)
+            mask = ImageOps.expand(mask, padding, fill=0)
+
+        # this is wrong. Here should be only rows, which are follow one by one. Start from bottom,
+        # and if we have enough almost zeroes rows in the bottom to make image square, then we can cut them only
+        # otherwise we cut them and then count such almost zeros rows in the top and cut them too to make square image.
+        # if cut rows from top and bottom isn't enough to make square image, then we need to add zero-padding
+        # to left and right
+        # almost zero rows are those, which have MAX value less than threshold
         '''if top_row < thresh and bottom_row < thresh:
-            rows = np.where(np.mean(image_np, axis=(1, 2)) > thresh)[0]
+            rows = np.where(np.max(image_np, axis=(1, 2)) > thresh)[0]
             if len(rows) > 0:
                 if len(rows) < image.width:
                     first_row = int((image.height - image.width)/2)
@@ -47,12 +74,12 @@ class WeldDataset(Dataset):
                     first_row, last_row = rows[0], rows[-1]
                     image = image.crop((0, first_row, image.width, last_row))
                     mask = mask.crop((0, first_row, mask.width, last_row))
-        else:'''
-        delta_w = image.height - image.width
-        delta_h = 0
-        padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
-        image = ImageOps.expand(image, padding, fill=0)
-        mask = ImageOps.expand(mask, padding, fill=0)
+        else:
+            delta_w = image.height - image.width
+            delta_h = 0
+            padding = (delta_w // 2, delta_h, delta_w - (delta_w // 2), delta_h)
+            image = ImageOps.expand(image, padding, fill=0)
+            mask = ImageOps.expand(mask, padding, fill=0)'''
 
         return image, mask
 
@@ -83,7 +110,7 @@ def get_deeplabv3_pretrained_model(num_classes):
     return model
 
 
-# always use 256. otherwise the predictions would be very bad
+# always use 256. otherwise the predictions would be very bad (for this NN)
 num_pixels = 256
 time_start = time.time()
 print('Start script at: ', time_start)
