@@ -10,10 +10,10 @@ import torchvision
 import torchvision.transforms as T
 import imageio
 from tqdm import tqdm
-thresh = 2
+thresh = 10
 
 # need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
-pixValThresh = 50
+pixValThresh = 10
 
 
 def resize_image(img):
@@ -175,47 +175,6 @@ def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
     return img, crop_or_pad_details
 
 
-video_folder = "Data/Weld_VIdeo/"
-videos = os.listdir(os.path.join(video_folder))
-video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
-frame_idx = 0
-
-num_pixels = 256
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Device: ", device)
-model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-03_15-32.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
-                           strict=False)  # , map_location='cpu'
-model_weld = model_weld.to(device)
-model_weld.eval()
-
-model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
-model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-04_20-21.pth'), strict=False)  # , map_location='cpu'
-model_electrode = model_electrode.to(device)
-model_electrode.eval()
-transform = T.Compose([
-    T.Resize((num_pixels, num_pixels)),
-    T.ToTensor(),
-])
-
-
-def update_frame_idx(val):
-    global frame_idx
-    frame_idx = max(0, val)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-
-
-cap = cv2.VideoCapture(video_folder + videos[video_idx])
-if not cap.isOpened():
-    print("Video end")
-    exit()
-
-frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-video_name = videos[video_idx]
-
-
 def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     """
     TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when padding was made)
@@ -256,6 +215,17 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
         mask_weld_resized = mask_weld_resized[:, diff:cropped_height - diff]
         mask_electrode_resized = mask_electrode_resized[:, diff:cropped_height - diff]
 
+    # if the image was cropped, make padding to top and bottom as shown in the details
+    if details['was_cropped']:
+        mask_weld_resized = np.pad(mask_weld_resized,
+                                   ((details['top_crop'], details['bottom_crop']), (0, 0)),
+                                   'constant',
+                                   constant_values=0)
+        mask_electrode_resized = np.pad(mask_electrode_resized,
+                                   ((details['top_crop'], details['bottom_crop']), (0, 0)),
+                                   'constant',
+                                   constant_values=0)
+
     canvas_weld = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
     canvas_electrode = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
 
@@ -282,6 +252,47 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
 
     return overlayed_image
+
+
+video_folder = "Data/Weld_VIdeo/"
+videos = os.listdir(os.path.join(video_folder))
+video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+frame_idx = 0
+
+num_pixels = 256
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Device: ", device)
+model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
+model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-05_12-06.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+                           strict=False)  # , map_location='cpu'
+model_weld = model_weld.to(device)
+model_weld.eval()
+
+model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
+model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-04_20-21.pth'), strict=False)  # , map_location='cpu'
+model_electrode = model_electrode.to(device)
+model_electrode.eval()
+transform = T.Compose([
+    T.Resize((num_pixels, num_pixels)),
+    T.ToTensor(),
+])
+
+
+def update_frame_idx(val):
+    global frame_idx
+    frame_idx = max(0, val)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+
+
+cap = cv2.VideoCapture(video_folder + videos[video_idx])
+if not cap.isOpened():
+    print("Video end")
+    exit()
+
+frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+video_name = videos[video_idx]
 
 
 frame_counter = 0
