@@ -114,7 +114,7 @@ model = model.to(device)
 criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-num_epochs = 50
+num_epochs = 30
 loss_history = []
 for epoch in range(num_epochs):
     model.train()

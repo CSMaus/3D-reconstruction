@@ -161,7 +161,7 @@ def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
         was_padded = False
 
     if img.size[0] == img.size[1]:
-        img = img.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
+        img = img.resize((desired_size, desired_size), Image.LANCZOS)
 
     crop_or_pad_details = {
         'top_crop': top_crop,
@@ -256,7 +256,7 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -264,7 +264,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-05_12-06.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-05_17-13.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()
