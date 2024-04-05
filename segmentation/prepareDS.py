@@ -21,7 +21,7 @@ if not os.path.exists(xml_path):
 name_prefix = video_name[22:-8]
 
 # Weld_Video_2023-04-20_02-19-11_Camera01_annotations.xml'
-label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
+label_type = 'Electrode'  # 'CentralWeld' 'Electrode'
 frames_output_dir = Path(f'SegmentationDS/{label_type}/frames/')
 masks_output_dir = Path(f'SegmentationDS/{label_type}/masks/')
 imgs_path = Path(f'SegmentationDS/{video_name}/frames/')
@@ -54,7 +54,7 @@ def check_issave_frame(frame, thresh=pixValThresh):
     save = False
     # if the frame is not almost dark, i e the bottom rows of trhe frame are not almost black
     # i e the max pixels values are above the threshold, then we don't save the frame
-    max_pixel_values = np.max(frame, axis=(1, 2))
+    max_pixel_values = np.mean(frame, axis=(1, 2))
     bottom_crop = 0
     while max_pixel_values[-(bottom_crop + 1)] < thresh and (frame_height - bottom_crop) > frame_width:
         bottom_crop += 1
