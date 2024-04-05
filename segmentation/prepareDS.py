@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 import os
 
+pixValThresh = 10
 # for 2 of 5 electrode positions also ready
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
@@ -48,6 +49,21 @@ if not cap.isOpened():
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+
+def check_issave_frame(frame, thresh=pixValThresh):
+    save = False
+    # if the frame is not almost dark, i e the bottom rows of trhe frame are not almost black
+    # i e the max pixels values are above the threshold, then we don't save the frame
+    max_pixel_values = np.max(frame, axis=(1, 2))
+    bottom_crop = 0
+    while max_pixel_values[-(bottom_crop + 1)] < thresh and (frame_height - bottom_crop) > frame_width:
+        bottom_crop += 1
+    if bottom_crop > 0:
+        save = True
+
+    return save
+
+
 # this for loop works for annotation which were made using video
 num_saved_imgs = 0
 for track in root.findall(".//track"):
@@ -60,6 +76,8 @@ for track in root.findall(".//track"):
             ret, frame = cap.read()
             if not ret:
                 print(f"Failed to read frame at index {frame_index}")
+                continue
+            if not check_issave_frame(frame):
                 continue
 
             points_str = polygon.get('points')
@@ -95,6 +113,9 @@ if num_saved_imgs == 0:
 
         if frame is None:
             print(f"Failed to read image: {imgs_path+image_name}")
+            continue
+            
+        if not check_issave_frame(frame):
             continue
 
         for polygon in image_tag.findall('.//polygon'):
