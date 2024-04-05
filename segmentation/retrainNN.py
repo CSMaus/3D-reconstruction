@@ -56,13 +56,6 @@ class WeldDataset(Dataset):
         #     img = img.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
         #     mask = mask.resize((desired_size, desired_size), Image.Resampling.LANCZOS)
 
-        # this is wrong. Here should be only rows, which are follow one by one. Start from bottom,
-        # and if we have enough almost zeroes rows in the bottom to make image square, then we can cut them only
-        # otherwise we cut them and then count such almost zeros rows in the top and cut them too to make square image.
-        # if cut rows from top and bottom isn't enough to make square image, then we need to add zero-padding
-        # to left and right
-        # almost zero rows are those, which have MAX value less than threshold
-
         return img, mask
 
     def __getitem__(self, idx):
@@ -100,12 +93,12 @@ transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
-label_type = 'Electrode'  # 'CentralWeld' 'Electrode'
+label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
 img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
