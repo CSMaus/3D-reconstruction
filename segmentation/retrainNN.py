@@ -44,9 +44,6 @@ class WeldDataset(Dataset):
         if bottom_crop > 0 or top_crop > 0:
             img = img.crop((0, top_crop, width, height - bottom_crop))
             mask = mask.crop((0, top_crop, width, height - bottom_crop))
-            was_cropped = True
-        else:
-            was_cropped = False
 
         new_height, new_width = img.size[1], img.size[0]
 
@@ -98,7 +95,7 @@ def get_deeplabv3_pretrained_model(num_classes):
 # always use 256. otherwise the predictions would be very bad (for this NN)
 num_pixels = 256
 time_start = time.time()
-print('Start script at: ', time_start)
+print('Start script at: ', datetime.today().strftime('%Y-%m-%d_%H-%M'))
 transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
@@ -152,7 +149,7 @@ with open(filename, 'w') as f:
         f.write(f"Epoch {epoch}, Loss: {loss}\n")
 
 time_end = time.time()
-print('End script at: ', time_end)
+print('End script at: ', datetime.today().strftime('%Y-%m-%d_%H-%M'))
 print('All computations took: ', (time_end - time_start)/60, "min")
 
 print(model_name)
