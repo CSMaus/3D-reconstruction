@@ -177,7 +177,7 @@ def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -192,7 +192,7 @@ model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-03_17-35.pth'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-04_20-21.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -218,8 +218,9 @@ video_name = videos[video_idx]
 
 def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     """
-    TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when
-    padding was made)
+    TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when padding was made)
+    Fix1: works well if the image was only padded
+    Fix 2: okaaay, now is better, but sometimes (with worse lighting) it still moves to the top or bottom
     """
     image = Image.fromarray(frame).convert("RGB")
     processed_image, details = preprocess_image_for_prediction(image, thresh)
@@ -238,11 +239,22 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
         predicted_mask_electrode = output_electrode.sigmoid().cpu().numpy() > 0.5
 
     cropped_height = details['original_height'] - details['top_crop'] - details['bottom_crop']
-    cropped_width = details['original_width']
+    if details['was_padded']:
+        cropped_width = cropped_height
+    else:
+        cropped_width = details['original_width']
+
     mask_weld_resized = cv2.resize(predicted_mask_weld.astype(np.float32), (cropped_width, cropped_height),
                                    interpolation=cv2.INTER_NEAREST)
     mask_electrode_resized = cv2.resize(predicted_mask_electrode.astype(np.float32), (cropped_width, cropped_height),
                                         interpolation=cv2.INTER_NEAREST)
+
+    if details['was_padded']:
+        # crop the mask width to the original width by half from left and right sides
+        # maybe need to change  original_height and original_width to cropped_height and cropped_width
+        diff = int((cropped_height - details['original_width'])/2)
+        mask_weld_resized = mask_weld_resized[:, diff:cropped_height - diff]
+        mask_electrode_resized = mask_electrode_resized[:, diff:cropped_height - diff]
 
     canvas_weld = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
     canvas_electrode = np.zeros((details['original_height'], details['original_width']), dtype=np.float32)
@@ -250,16 +262,21 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     vertical_start = details['top_crop']
     vertical_end = details['original_height'] - details['bottom_crop']
 
-    canvas_weld[vertical_start:vertical_end, :] = mask_weld_resized
-    canvas_electrode[vertical_start:vertical_end, :] = mask_electrode_resized
+    mask_weld_resized = cv2.resize(mask_weld_resized.astype(np.float32), (details['original_width'], details['original_height']),
+                                   interpolation=cv2.INTER_NEAREST)
+    mask_electrode_resized = cv2.resize(mask_electrode_resized.astype(np.float32), (details['original_width'], details['original_height']),
+                                        interpolation=cv2.INTER_NEAREST)
 
-    canvas_weld = (canvas_weld * 255).astype(np.uint8)
-    canvas_electrode = (canvas_electrode * 255).astype(np.uint8)
+    # canvas_weld[vertical_start:vertical_end, :] = mask_weld_resized
+    # canvas_electrode[vertical_start:vertical_end, :] = mask_electrode_resized
+
+    # canvas_weld = (canvas_weld * 255).astype(np.uint8)
+    # canvas_electrode = (canvas_electrode * 255).astype(np.uint8)
 
     overlay_weld = np.zeros_like(frame)
     overlay_electrode = np.zeros_like(frame)
-    overlay_weld[canvas_weld > 0] = [0, 255, 0]
-    overlay_electrode[canvas_electrode > 0] = [255, 0, 255]
+    overlay_weld[mask_weld_resized > 0] = [0, 255, 0]
+    overlay_electrode[mask_electrode_resized > 0] = [255, 0, 255]
 
     overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
     overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
@@ -285,7 +302,7 @@ while True:
     processed_frame = predict_mask(frame)
     processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
 
-    if frame_counter == 5:
+    if frame_counter == -1:
         processed_frame = predict_mask(frame, pixValThresh, True)
         print("Frame processed")
     # frames_for_gif.append(processed_frame_rgb)
