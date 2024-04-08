@@ -37,6 +37,8 @@ def resize_image(img):
     img = ImageOps.expand(img, padding, fill=0)
 
     return img
+
+
 def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
     """
     I'll add it later
@@ -134,7 +136,7 @@ def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
     and if needed, pads the image to make it square before resizing to the desired size.
     """
     image_np = np.array(img)
-    max_pixel_values = np.max(image_np, axis=(1, 2))
+    max_pixel_values = np.mean(image_np, axis=(1, 2))
     height, width = image_np.shape[:2]
 
     bottom_crop = 0
@@ -256,7 +258,7 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -264,14 +266,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-2024-04-05_17-13.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-BS32-2024-04-08_14-22.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
 model_weld = model_weld.to(device)
 model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-04_20-21.pth'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-05_19-03.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
