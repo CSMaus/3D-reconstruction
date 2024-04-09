@@ -10,6 +10,7 @@ import torchvision
 import torchvision.transforms as T
 import imageio
 from tqdm import tqdm
+from datetime import datetime
 thresh = 10
 
 # need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
@@ -379,9 +380,8 @@ if not createGif:
     # sys.exit()
 else:
     frames_for_gif = []
-    frame_counter = 0
     print(f"Preparing gif for {video_name} ...")
-    for frame_idx in tqdm(range(0, frame_count, 10)):
+    for frame_idx in tqdm(range(289, frame_count, 1)):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
         if not ret:
@@ -407,9 +407,18 @@ else:
                     lineType)
         frames_for_gif.append(processed_frame_rgb)
 
-    gif_path = os.path.join("Gifs/", f'{video_name[:-8]}.gif')
-    imageio.mimsave(gif_path, frames_for_gif, fps=4)
-    print("gif saved at: ", gif_path)
+    date = datetime.today().strftime('%Y-%m-%d_%H-%M')
+    video_path = os.path.join("Videos/", f'{video_name[:-8]}-{date}.mp4')
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 'mp4v' for .mp4
+    height, width, _ = frames_for_gif[0].shape
+    out = cv2.VideoWriter(video_path, fourcc, 20.0, (width, height))
+    for frame in frames_for_gif:
+        out.write(frame)
+    out.release()
+    # gif_path = os.path.join("Gifs/", f'{video_name[:-8]}-{date}.gif')
+    # imageio.mimsave(gif_path, frames_for_gif, fps=10)
+    print("video saved at: ", video_path)
 
 cap.release()
 cv2.destroyAllWindows()
