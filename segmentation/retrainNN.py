@@ -93,12 +93,13 @@ transform = T.Compose([
     T.Resize((num_pixels, num_pixels)),
     T.ToTensor(),
 ])
-label_type = 'CentralWeld'  # 'CentralWeld' 'Electrode'
+batch_size = 32
+label_type = 'Electrode'  # 'CentralWeld' 'Electrode'
 img_dir = f'SegmentationDS/{label_type}/frames/'
 mask_dir = f'SegmentationDS/{label_type}/masks/'
 print("Number of images: ", len(os.listdir(os.path.join(img_dir))))
 dataset = WeldDataset(img_dir, mask_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 num_classes = 1
 model = deeplabv3_resnet101(pretrained=True)  # 50
@@ -114,7 +115,7 @@ model = model.to(device)
 criterion = torch.nn.BCEWithLogitsLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-num_epochs = 30
+num_epochs = 50
 loss_history = []
 for epoch in range(num_epochs):
     model.train()
@@ -132,11 +133,11 @@ for epoch in range(num_epochs):
     loss_history.append(loss.item())
 
 current_date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-model_name = f'models/{label_type}-deeplabv3_resnet101-{current_date}.pth'
+model_name = f'models/{label_type}-deeplabv3_resnet101-BS{batch_size}-{current_date}.pth'
 torch.save(model.state_dict(), model_name)
 
 
-filename = f"histories/{label_type}-training_history-deeplabv3_resnet101-{current_date}.txt"
+filename = f"histories/{label_type}-training_history-deeplabv3_resnet101-BS{batch_size}-{current_date}.txt"
 with open(filename, 'w') as f:
     for epoch, loss in enumerate(loss_history, 1):
         f.write(f"Epoch {epoch}, Loss: {loss}\n")
