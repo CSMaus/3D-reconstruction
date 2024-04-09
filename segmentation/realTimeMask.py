@@ -177,6 +177,28 @@ def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
     return img, crop_or_pad_details
 
 
+def add_text_based_on_mask(overlayed_image, mask_resized, text, is_electrode=True):
+    contours, _ = cv2.findContours(mask_resized.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        text_color = (100, 0, 255)
+        if is_electrode:
+            text_position = (x + w + 5, y + h // 2)
+        else:
+            text_position = (x - 10, y + h + 20)
+            text_color = (0, 255, 0)
+
+        text_position = (max(0, text_position[0]), max(0, text_position[1]))
+
+        cv2.putText(overlayed_image, text,
+                    text_position,
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                    text_color, 1, cv2.LINE_AA)
+
+    return overlayed_image
+
+
 def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     """
     TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when padding was made)
@@ -248,10 +270,13 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlay_weld = np.zeros_like(frame)
     overlay_electrode = np.zeros_like(frame)
     overlay_weld[mask_weld_resized > 0] = [0, 255, 0]
-    overlay_electrode[mask_electrode_resized > 0] = [255, 0, 255]
+    overlay_electrode[mask_electrode_resized > 0] = [100, 0, 255]
 
     overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
     overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
+
+    overlayed_image = add_text_based_on_mask(overlayed_image, mask_weld_resized, "Central Weld", False)
+    overlayed_image = add_text_based_on_mask(overlayed_image, mask_electrode_resized, "Electrode")
 
     return overlayed_image
 
@@ -273,7 +298,7 @@ model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-2024-04-05_19-03.pth'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth'), strict=False)  # , map_location='cpu'
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -296,61 +321,99 @@ if not cap.isOpened():
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 video_name = videos[video_idx]
 
-
 frame_counter = 0
+font = cv2.FONT_HERSHEY_SIMPLEX
+x, y = 10, 500
+position = (x, y)
+fontScale = 0.6
+fontColor = (245, 245, 200)
+thickness = 1
+lineType = 2
 
-cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
-cv2.createTrackbar('Frame_i', video_name, 0, frame_count-1, update_frame_idx)
+createGif = True
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read frame.")
-        break
-    # to play video normally after seeking comment out
-    # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+if not createGif:
+    cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
+    cv2.createTrackbar('Frame_i', video_name, 0, frame_count - 1, update_frame_idx)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Error: Could not read frame.")
+            break
+        # to play video normally after seeking comment out
+        # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
-    frame_counter += 1
-    # if frame_counter % 50 == 0:
-    processed_frame = predict_mask(frame)
-    processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+        # frame_counter += 1
+        frame_counter = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        # if frame_counter % 50 == 0:
+        processed_frame = predict_mask(frame)
+        processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
 
-    if frame_counter == -1:
-        processed_frame = predict_mask(frame, pixValThresh, True)
-        print("Frame processed")
-    # frames_for_gif.append(processed_frame_rgb)
-    cv2.imshow(video_name, processed_frame)
+        cv2.putText(processed_frame, f"Frame idx:",
+                    position,
+                    font,
+                    fontScale,
+                    fontColor,
+                    thickness,
+                    lineType)
+        cv2.putText(processed_frame, f"{frame_counter}",
+                    (x, y + int(fontScale * 35)),
+                    font,
+                    fontScale,
+                    fontColor,
+                    thickness,
+                    lineType)
 
-    key = cv2.waitKey(1) & 0xFF
-    if key == 27:  # 'Esc' to exit
-        break
+        # if frame_counter == -1:
+        #     processed_frame = predict_mask(frame, pixValThresh, True)
+        #     print("Frame processed")
+        # frames_for_gif.append(processed_frame_rgb)
+        cv2.imshow(video_name, processed_frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27:  # 'Esc' to exit
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    # sys.exit()
+else:
+    frames_for_gif = []
+    frame_counter = 0
+    print(f"Preparing gif for {video_name} ...")
+    for frame_idx in tqdm(range(0, frame_count, 10)):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = cap.read()
+        if not ret:
+            print("Error: Could not read frame.")
+            break
+        frame_counter = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        processed_frame = predict_mask(frame)
+        processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+
+        cv2.putText(processed_frame, f"Frame idx:",
+                    position,
+                    font,
+                    fontScale,
+                    fontColor,
+                    thickness,
+                    lineType)
+        cv2.putText(processed_frame, f"{frame_counter}",
+                    (x, y + int(fontScale * 35)),
+                    font,
+                    fontScale,
+                    fontColor,
+                    thickness,
+                    lineType)
+        frames_for_gif.append(processed_frame_rgb)
+
+    gif_path = os.path.join("Gifs/", f'{video_name[:-8]}.gif')
+    imageio.mimsave(gif_path, frames_for_gif, fps=4)
+    print("gif saved at: ", gif_path)
 
 cap.release()
 cv2.destroyAllWindows()
-sys.exit()
-
-
-frames_for_gif = []
-frame_counter = 0
-print(f"Preparing gif for {video_name} ...")
-for frame_idx in tqdm(range(0, frame_count, 10)):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read frame.")
-        break
-    processed_frame = predict_mask(frame)
-    processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-    frames_for_gif.append(processed_frame_rgb)
-
-
-gif_path = os.path.join("Gifs/", f'{video_name[:-8]}.gif')
-imageio.mimsave(gif_path, frames_for_gif, fps=4)
-print("gif saved at: ", gif_path)
-
-cap.release()
-cv2.destroyAllWindows()
-sys.exit()
+# sys.exit()
 
 
 
