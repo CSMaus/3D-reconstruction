@@ -284,7 +284,7 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -326,12 +326,12 @@ frame_counter = 0
 font = cv2.FONT_HERSHEY_SIMPLEX
 x, y = 10, 500
 position = (x, y)
-fontScale = 0.6
-fontColor = (245, 245, 200)
-thickness = 1
+fontScale = 0.7
+fontColor = (245, 245, 245)
+thickness = 2
 lineType = 2
 
-createGif = True
+createGif = False
 
 if not createGif:
     cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
@@ -381,7 +381,7 @@ if not createGif:
 else:
     frames_for_gif = []
     print(f"Preparing gif for {video_name} ...")
-    for frame_idx in tqdm(range(289, frame_count, 1)):
+    for frame_idx in tqdm(range(289, frame_count - 310, 1)):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
         if not ret:
@@ -389,7 +389,7 @@ else:
             break
         frame_counter = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
         processed_frame = predict_mask(frame)
-        processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+        # processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
 
         cv2.putText(processed_frame, f"Frame idx:",
                     position,
@@ -405,14 +405,14 @@ else:
                     fontColor,
                     thickness,
                     lineType)
-        frames_for_gif.append(processed_frame_rgb)
+        frames_for_gif.append(processed_frame)
 
     date = datetime.today().strftime('%Y-%m-%d_%H-%M')
     video_path = os.path.join("Videos/", f'{video_name[:-8]}-{date}.mp4')
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 'mp4v' for .mp4
     height, width, _ = frames_for_gif[0].shape
-    out = cv2.VideoWriter(video_path, fourcc, 20.0, (width, height))
+    out = cv2.VideoWriter(video_path, fourcc, 15.0, (width, height))
     for frame in frames_for_gif:
         out.write(frame)
     out.release()
