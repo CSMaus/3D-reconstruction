@@ -15,6 +15,8 @@ thresh = 10
 # need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
 # need more data for electrode
 pixValThresh = 10
+createGif = False
+video_idx = 4  # video 1 need to collect more data for all, and 3 too for electrode
 
 
 def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
@@ -73,7 +75,7 @@ def add_text_based_on_mask(overlayed_image, mask_resized, text, is_electrode=Tru
         if is_electrode:
             text_position = (x + w + 5, y + h // 2)
         else:
-            text_position = (x - 10, y + h + 20)
+            text_position = (x - 10, y + h + 25)
             text_color = (0, 255, 0)
 
         text_position = (max(0, text_position[0]), max(0, text_position[1]))
@@ -146,8 +148,8 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlay_weld[mask_weld_resized > 0] = [0, 255, 0]
     overlay_electrode[mask_electrode_resized > 0] = [100, 0, 255]
 
-    overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
-    overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
+    overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.25, 0)
+    overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.25, 0)
 
     overlayed_image = add_text_based_on_mask(overlayed_image, mask_weld_resized, "Central Weld", False)
     overlayed_image = add_text_based_on_mask(overlayed_image, mask_electrode_resized, "Electrode")
@@ -156,12 +158,14 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlayed_image = annotate_mask_edges_with_position(overlayed_image, mask_weld_resized, central_electrode_position,
                                       details['original_width'])
 
-    cv2.circle(overlayed_image, (details['original_height'], central_electrode_position), 2, (255, 0, 0), -1)
+    y_start = int(details['original_height']/4)
+    for y in range(y_start, y_start+50):
+        cv2.circle(overlayed_image, (central_electrode_position, y), 2, (200, 200, 200), -1)
     return overlayed_image
 
 
 def annotate_mask_edges_with_position(overlayed_image, mask_resized, central_electrode_position, image_width,
-                                      step=15):
+                                      step=25):
     """
     :param overlayed_image: Image to draw annotations on
     :param mask_resized: Binary mask of the CentralWeld (0  and 1)
@@ -170,10 +174,10 @@ def annotate_mask_edges_with_position(overlayed_image, mask_resized, central_ele
     :param step: Step for iterating over the mask rows (to define edge position)
     """
     half_width = image_width // 2
-    prev_y = 0
+    prev_yL = 0
+    prev_yR = 0
     for y in range(mask_resized.shape[0]):
-        if y - prev_y < step and y != 0:
-            continue
+
         row = mask_resized[y, :]
 
         indices = np.where(row >=0.99)[0]
@@ -181,20 +185,28 @@ def annotate_mask_edges_with_position(overlayed_image, mask_resized, central_ele
         if indices.size > 0:
             left_edge = min(indices)  # [0]
             right_edge = max(indices)  # [-1]
-            if left_edge < half_width:
+            if left_edge < central_electrode_position:
                 left_position = (left_edge - central_electrode_position) / half_width * 100
-                cv2.circle(overlayed_image, (left_edge, y), 2, (255, 50, 50), -1)
-                cv2.putText(overlayed_image, f"{left_position:.1f}%", (left_edge, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.3,
-                            (255, 50, 50), 1)
-                prev_y = y
+                if y - prev_yL >= step:
+                    cv2.circle(overlayed_image, (left_edge, y), 3, (255, 150, 50), -1)
+                    cv2.putText(overlayed_image, f"{left_position:.1f}%", (left_edge - 70, y),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                                (255, 150, 50), 2)
+                    prev_yL = y
+                else:
+                    cv2.circle(overlayed_image, (left_edge, y), 1, (255, 50, 50), -1)
 
             if right_edge > central_electrode_position:
                 right_position = (right_edge - central_electrode_position) / half_width * 100
 
-                cv2.circle(overlayed_image, (right_edge, y), 2, (50, 255, 50), -1)
-                cv2.putText(overlayed_image, f"{right_position:.1f}%", (right_edge, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.3,
-                            (50, 255, 50), 1)
-                prev_y = y
+                if y - prev_yR >= step:
+                    cv2.circle(overlayed_image, (right_edge, y), 3, (50, 255, 50), -1)
+                    cv2.putText(overlayed_image, f"{right_position:.1f}%", (right_edge + 3, y),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                                (50, 255, 50), 2)
+                    prev_yR = y
+                else:
+                    cv2.circle(overlayed_image, (right_edge, y), 1, (150, 255, 50), -1)
     return overlayed_image
 
 
@@ -227,7 +239,6 @@ def find_central_electrode_position(mask_resized):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 
 num_pixels = 256
@@ -267,14 +278,12 @@ video_name = videos[video_idx]
 
 frame_counter = 0
 font = cv2.FONT_HERSHEY_SIMPLEX
-x, y = 10, 500
+x, y = 10, 700
 position = (x, y)
 fontScale = 0.7
 fontColor = (245, 245, 245)
 thickness = 2
 lineType = 2
-
-createGif = False
 
 if not createGif:
     cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
@@ -285,7 +294,7 @@ if not createGif:
             print("Error: Could not read frame.")
             break
         # to play video normally after seeking comment out
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
 
         # frame_counter += 1
         frame_counter = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
