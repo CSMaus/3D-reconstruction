@@ -16,7 +16,8 @@ thresh = 10
 # need more data for electrode
 pixValThresh = 10
 createGif = False
-video_idx = 4  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 1  # video 1 need to collect more data for all, and 3 too for electrode
+pixStep = 20  # 25
 
 
 def preprocess_image_for_prediction(img, thresh=pixValThresh, desired_size=256):
@@ -155,8 +156,8 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlayed_image = add_text_based_on_mask(overlayed_image, mask_electrode_resized, "Electrode")
 
     central_electrode_position = find_central_electrode_position(mask_electrode_resized)
-    overlayed_image = annotate_mask_edges_with_position(overlayed_image, mask_weld_resized, central_electrode_position,
-                                      details['original_width'])
+    # overlayed_image = annotate_mask_edges_with_position(overlayed_image, mask_weld_resized, central_electrode_position,
+    #                                   details['original_width'])
 
     y_start = int(details['original_height']/4)
     for y in range(y_start, y_start+50):
@@ -165,7 +166,7 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
 
 
 def annotate_mask_edges_with_position(overlayed_image, mask_resized, central_electrode_position, image_width,
-                                      step=25):
+                                      step=pixStep):
     """
     :param overlayed_image: Image to draw annotations on
     :param mask_resized: Binary mask of the CentralWeld (0  and 1)
