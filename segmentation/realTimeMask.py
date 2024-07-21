@@ -376,7 +376,7 @@ def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 createGif = False
 
@@ -395,8 +395,11 @@ model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth'),
-                                strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-BS32-2024-07-21_19-05.pth'),
+                                strict=False)
+# , map_location='cpu'
+# 'Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth'  # this one is better.
+# TODO: Prepare mask only for the low part of the electrode - iot should be higher accuracy
 
 
 # 'models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth' works well for video 0, 2,
