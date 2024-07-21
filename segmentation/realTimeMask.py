@@ -13,6 +13,7 @@ from tqdm import tqdm
 from datetime import datetime
 thresh = 10
 
+
 # need to collect data for "Weld_Video_2023-04-20_01-55-23_Camera02.avi"
 pixValThresh = 10
 
@@ -40,7 +41,7 @@ def resize_image(img):
     return img
 
 
-def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
+'''def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
     """
     I'll add it later
     """
@@ -92,7 +93,7 @@ def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
     overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
 
     return overlayed_image
-
+'''
 
 def predict_mask_old(frame):
 
@@ -196,7 +197,7 @@ def add_text_based_on_mask(overlayed_image, mask_resized, text, is_electrode=Tru
                     text_position,
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                     text_color, 1, cv2.LINE_AA)
-
+        break
     return overlayed_image
 
 
@@ -273,11 +274,102 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     overlay_weld[mask_weld_resized > 0] = [0, 255, 0]
     overlay_electrode[mask_electrode_resized > 0] = [100, 0, 255]
 
-    overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
-    overlayed_image = cv2.addWeighted(overlayed_image, 1, overlay_electrode, 0.5, 0)
+    # overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
+    overlayed_image = cv2.addWeighted(frame, 1, overlay_electrode, 0.5, 0)  # was overlayed_image instead of frame
 
-    overlayed_image = add_text_based_on_mask(overlayed_image, mask_weld_resized, "Central Weld", False)
+    bright_mask = create_brightest_mask(frame, mask_electrode_resized)
+    bright_overlay = np.zeros_like(frame)
+    bright_overlay[bright_mask > 0] = [0, 255, 255]
+    overlayed_image = cv2.addWeighted(overlayed_image, 1, bright_overlay, 0.8, 0)
+
+    # overlayed_image = add_text_based_on_mask(overlayed_image, mask_weld_resized, "Central Weld", False)
+    overlayed_image = add_text_based_on_mask(overlayed_image, bright_mask, "Arc", False)
     overlayed_image = add_text_based_on_mask(overlayed_image, mask_electrode_resized, "Electrode")
+
+    return overlayed_image
+
+
+def create_brightest_mask(frame, electrode_mask, base_threshold=180, adjust_factor=0.5, max_distance=15):
+    # Convert the frame to grayscale and calculate the mean brightness
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    mean_brightness = np.mean(gray_frame)
+
+    adjusted_threshold = max(0, base_threshold - int(adjust_factor * mean_brightness))
+
+    bright_mask = (gray_frame >= adjusted_threshold).astype(np.uint8)
+
+    electrode_mask_resized = cv2.resize(electrode_mask, (bright_mask.shape[1], bright_mask.shape[0])).astype(np.uint8)
+
+    distance_transform = cv2.distanceTransform(1 - electrode_mask_resized, cv2.DIST_L2, 5)
+
+    distance_mask = (distance_transform <= max_distance).astype(np.uint8)
+
+    filtered_bright_mask = cv2.bitwise_and(bright_mask, distance_mask)
+
+    final_mask = cv2.bitwise_and(filtered_bright_mask, 1 - electrode_mask_resized)
+
+    final_mask = final_mask * 255
+
+    return final_mask
+
+
+def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
+    """
+    Modified function to include creation and overlay of the brightest part mask.
+    """
+    image = Image.fromarray(frame).convert("RGB")
+    processed_image, details = preprocess_image_for_prediction(image, thresh)
+
+    if isShowImages:
+        # save original and processed images
+        if not os.path.exists('test'):
+            os.makedirs('test')
+        processed_image.save('test/processed_image.jpg')
+        image.save('test/original_image.jpg')
+
+    image_tensor = transform(processed_image).unsqueeze(0).to(device)
+    with torch.no_grad():
+        output_weld = model_weld(image_tensor)['out'][0][0]
+        output_electrode = model_electrode(image_tensor)['out'][0][0]
+        predicted_mask_weld = output_weld.sigmoid().cpu().numpy() > 0.5
+        predicted_mask_electrode = output_electrode.sigmoid().cpu().numpy() > 0.5
+
+    processed_dims = (processed_image.width, processed_image.height)
+    mask_weld_resized = cv2.resize(predicted_mask_weld.astype(np.float32), processed_dims,
+                                   interpolation=cv2.INTER_NEAREST)
+    mask_electrode_resized = cv2.resize(predicted_mask_electrode.astype(np.float32), processed_dims,
+                                        interpolation=cv2.INTER_NEAREST)
+
+    original_height, original_width = details['original_height'], details['original_width']
+
+    canvas_weld = np.zeros((original_height, original_width), dtype=np.float32)
+    canvas_electrode = np.zeros((original_height, original_width), dtype=np.float32)
+
+    if details['was_cropped']:
+        vertical_pad_top = details['top_index']
+        vertical_pad_bottom = original_height - details['bottom_index']
+        canvas_weld[vertical_pad_top:original_height - vertical_pad_bottom, :] = mask_weld_resized
+        canvas_electrode[vertical_pad_top:original_height - vertical_pad_bottom, :] = mask_electrode_resized
+    if details['was_padded']:
+        horizontal_pad = (processed_image.width - original_width) // 2
+        canvas_weld[:, :] = mask_weld_resized[:, horizontal_pad:horizontal_pad + original_width]
+        canvas_electrode[:, :] = mask_electrode_resized[:, horizontal_pad:horizontal_pad + original_width]
+
+    canvas_weld = (canvas_weld * 255).astype(np.uint8)
+    canvas_electrode = (canvas_electrode * 255).astype(np.uint8)
+
+    overlay_weld = np.zeros_like(frame)
+    overlay_electrode = np.zeros_like(frame)
+    overlay_weld[canvas_weld > 0] = [0, 255, 0]
+    overlay_electrode[canvas_electrode > 0] = [255, 0, 255]
+
+    # overlayed_image = cv2.addWeighted(frame, 1, overlay_weld, 0.5, 0)
+    overlayed_image = cv2.addWeighted(frame, 1, overlay_electrode, 0.5, 0)  # was overlayed_image instead of frame
+
+    bright_mask = create_brightest_mask(frame, canvas_electrode, brightness_threshold=200)
+    bright_overlay = np.zeros_like(frame)
+    bright_overlay[bright_mask > 0] = [0, 255, 0]
+    overlayed_image = cv2.addWeighted(overlayed_image, 1, bright_overlay, 0.5, 0)
 
     return overlayed_image
 
@@ -286,20 +378,29 @@ video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 video_idx = 0  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
+createGif = False
 
 num_pixels = 256
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 model_weld = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_weld.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-BS32-2024-04-08_14-22.pth'),  # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
+model_weld.load_state_dict(torch.load('models/CentralWeld-deeplabv3_resnet101-BS32-2024-04-08_14-22.pth'),
+                           # retrained_deeplabv3_resnet101-2024-03-21_13-11.pth'),
                            strict=False)  # , map_location='cpu'
+
+
 model_weld = model_weld.to(device)
 model_weld.eval()
 
 model_electrode = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=False, num_classes=1)
 model_electrode.classifier[4] = torch.nn.Conv2d(num_pixels, 1, kernel_size=(1, 1), stride=(1, 1))
-model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth'), strict=False)  # , map_location='cpu'
+model_electrode.load_state_dict(torch.load('models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth'),
+                                strict=False)  # , map_location='cpu'
+
+
+# 'models/Electrode-deeplabv3_resnet101-BS32-2024-04-08_19-44.pth' works well for video 0, 2,
+#
 model_electrode = model_electrode.to(device)
 model_electrode.eval()
 transform = T.Compose([
@@ -331,7 +432,6 @@ fontColor = (245, 245, 245)
 thickness = 2
 lineType = 2
 
-createGif = False
 
 if not createGif:
     cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
