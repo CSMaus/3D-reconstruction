@@ -95,6 +95,7 @@ def resize_image(img):
     return overlayed_image
 '''
 
+
 def predict_mask_old(frame):
 
     image = Image.fromarray(frame).convert("RGB")
@@ -201,6 +202,53 @@ def add_text_based_on_mask(overlayed_image, mask_resized, text, is_electrode=Tru
     return overlayed_image
 
 
+def smooth_mask_edges(mask):
+    mask = (mask > 0).astype(np.uint8) * 255
+
+    cont = cv2.bitwise_not(mask)
+    original = np.zeros_like(mask)
+    smoothed = np.full_like(mask, 255, dtype=np.uint8)
+    filter_radius = 5
+    filter_size = 2 * filter_radius + 1
+    sigma = 10
+
+    contours, hierarchy = cv2.findContours(cont, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    for j in range(len(contours)):
+        length = len(contours[j]) + 2 * filter_radius
+        idx = (len(contours[j]) - filter_radius)
+        x = []
+        y = []
+        for i in range(length):
+            x.append(contours[j][(idx + i) % len(contours[j])][0][0])
+            y.append(contours[j][(idx + i) % len(contours[j])][0][1])
+
+        x_filt = cv2.GaussianBlur(np.array(x, dtype=np.float32), (filter_size, filter_size), sigma, sigma)
+        y_filt = cv2.GaussianBlur(np.array(y, dtype=np.float32), (filter_size, filter_size), sigma, sigma)
+
+        smooth_contours = []
+        smooth = []
+        for i in range(filter_radius, len(contours[j]) + filter_radius):
+            smooth.append([int(x_filt[i]), int(y_filt[i])])
+        smooth_contours.append(np.array(smooth, dtype=np.int32))
+
+        color = (0, 0, 0) if hierarchy[0][j][3] < 0 else (1, 1, 1)
+
+        cv2.drawContours(smoothed, [np.array(smooth_contours)], 0, color, thickness=cv2.FILLED)
+
+    return smoothed
+
+
+def enhance_outer_contour(image, mask, color=(0, 255, 0), thickO=2):
+    # mask = (mask > 0).astype(np.uint8) * 255
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour_overlay = np.zeros_like(image, dtype=np.uint8)
+    for contour in contours:
+        cv2.drawContours(contour_overlay, [contour], -1, color, thickO)
+    enhanced_image = cv2.addWeighted(image, 1, contour_overlay, 0.5, 0)
+
+    return enhanced_image
+
+
 def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     """
     TODO: fix. Sometime it moves to the side incorrectly (when there is no welding and cropping from bottom, i e when padding was made)
@@ -261,8 +309,9 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     mask_weld_resized = cv2.resize(mask_weld_resized.astype(np.float32), (details['original_width'], details['original_height']),
                                    interpolation=cv2.INTER_NEAREST)
     mask_electrode_resized = cv2.resize(mask_electrode_resized.astype(np.float32), (details['original_width'], details['original_height']),
-                                        interpolation=cv2.INTER_NEAREST)
+                                        interpolation=cv2.INTER_AREA)
 
+    mask_electrode_resized = smooth_mask_edges(mask_electrode_resized)
     # canvas_weld[vertical_start:vertical_end, :] = mask_weld_resized
     # canvas_electrode[vertical_start:vertical_end, :] = mask_electrode_resized
 
@@ -281,6 +330,8 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
     bright_overlay = np.zeros_like(frame)
     bright_overlay[bright_mask > 0] = [0, 255, 255]
     overlayed_image = cv2.addWeighted(overlayed_image, 1, bright_overlay, 0.8, 0)
+    overlayed_image = enhance_outer_contour(overlayed_image, mask_electrode_resized, color=[100, 0, 255], thickO=2)
+    overlayed_image = enhance_outer_contour(overlayed_image, bright_mask, color=[0, 255, 255], thickO=2)
 
     # overlayed_image = add_text_based_on_mask(overlayed_image, mask_weld_resized, "Central Weld", False)
     overlayed_image = add_text_based_on_mask(overlayed_image, bright_mask, "Arc", False)
@@ -290,7 +341,6 @@ def predict_mask(frame, thresh=pixValThresh, isShowImages=False):
 
 
 def create_brightest_mask(frame, electrode_mask, base_threshold=180, adjust_factor=0.5, max_distance=15):
-    # Convert the frame to grayscale and calculate the mean brightness
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     mean_brightness = np.mean(gray_frame)
 
@@ -307,8 +357,6 @@ def create_brightest_mask(frame, electrode_mask, base_threshold=180, adjust_fact
     filtered_bright_mask = cv2.bitwise_and(bright_mask, distance_mask)
 
     final_mask = cv2.bitwise_and(filtered_bright_mask, 1 - electrode_mask_resized)
-
-    final_mask = final_mask * 255
 
     return final_mask
 
@@ -376,7 +424,7 @@ def predict_mask_v2(frame, thresh=pixValThresh, isShowImages=False):
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 3  # video 1 need to collect more data for all, and 3 too for electrode
+video_idx = 2  # video 1 need to collect more data for all, and 3 too for electrode
 frame_idx = 0
 createGif = False
 
