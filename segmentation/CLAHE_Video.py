@@ -9,8 +9,10 @@ video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
 video_idx = 2
 video_path = os.path.join(video_folder, videos[video_idx])
-
+width = 400
+height = 1400
 cap = cv2.VideoCapture(video_path)
+
 if not cap.isOpened():
     print("Error: Could not open video.")
     exit()
@@ -18,12 +20,12 @@ if not cap.isOpened():
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 frame_idx = 0
-brightness = 50
-contrast = 30
-vibrance = 1.4
+brightness = 30
+contrast = 44
+vibrance = 1.1
 hue = 0
 saturation = 0
-lightness = 0
+lightness = 99
 
 
 def update_frame_idx(val):
@@ -35,7 +37,7 @@ def update_frame_idx(val):
 def apply_clahe(img):
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(12, 12))
     cl = clahe.apply(l)
     limg = cv2.merge((cl, a, b))
     return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
@@ -44,8 +46,6 @@ def apply_clahe(img):
 def apply_adjustments(frame):
 
     frame = apply_clahe(frame)
-
-
     img = np.int16(frame)
     img = img * (contrast / 127 + 1) - contrast + brightness
     img = np.clip(img, 0, 255)
@@ -72,6 +72,7 @@ def apply_adjustments(frame):
 
 video_name = "Video"
 cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(video_name, width, height)
 cv2.createTrackbar('Frame', video_name, 0, frame_count - 1, update_frame_idx)
 cv2.createTrackbar('Brightness', video_name, 50, 100, lambda v: None)
 cv2.createTrackbar('Contrast', video_name, 30, 100, lambda v: None)
