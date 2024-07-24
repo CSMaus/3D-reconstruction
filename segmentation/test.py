@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
@@ -48,29 +49,64 @@ def apply_clahe(img):
     return cl
 
 
+def adjust_lightness(frame, lightness):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+
+    lightness_scale = lightness / 100.0
+
+    if lightness_scale > 0:
+        v = v.astype(np.float32)
+        v = v + (255 - v) * lightness_scale
+        v = np.clip(v, 0, 255).astype(np.uint8)
+    else:
+        v = v.astype(np.float32)
+        v = v + v * lightness_scale
+        v = np.clip(v, 0, 255).astype(np.uint8)
+
+    adjusted_hsv = cv2.merge([h, s, v])
+    adjusted_frame = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+
+    return adjusted_frame
+
+
+def adjust_lightness_grayscale(frame, lightness):
+    lightness_scale = lightness / 100.0
+
+    if lightness_scale > 0:
+        frame = frame.astype(np.float32)
+        frame = frame + (255 - frame) * lightness_scale
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+    else:
+        frame = frame.astype(np.float32)
+        frame = frame + frame * lightness_scale
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+
+    return frame
+
+
 def apply_adjustments(frame):
     global gray
 
-    img = np.int16(frame)
-    img = np.clip(img + lightness, 0, 255)
-    img = np.uint8(img)
-
     if gray:
-        gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray_frame = apply_clahe(gray_frame)
 
         img = np.int16(gray_frame)
         img = img * (contrast / 127 + 1) - contrast + brightness
         img = np.clip(img, 0, 255)
         adjusted_frame = np.uint8(img)
+        adjusted_frame = adjust_lightness_grayscale(adjusted_frame, lightness)
         adjusted_frame = cv2.cvtColor(adjusted_frame, cv2.COLOR_GRAY2BGR)
     else:
-        img = np.int16(img)
+        img = np.int16(frame)
         img = img * (contrast / 127 + 1) - contrast + brightness
         img = np.clip(img, 0, 255)
         img = np.uint8(img)
 
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        adjusted_frame = adjust_lightness(img, lightness)
+
+        hsv = cv2.cvtColor(adjusted_frame, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
         xval = np.arange(0, 256)
@@ -84,23 +120,47 @@ def apply_adjustments(frame):
         v = cv2.add(v, lightness)
 
         adjusted_hsv = cv2.merge([h, s, v])
+
         adjusted_frame = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+        adjusted_frame = adjust_lightness(adjusted_frame, lightness)
 
     return adjusted_frame
 
 
-width = 400
-height = 1300
+def calculate_histogram(frame):
+    if gray:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([frame], [0], None, [256], [0, 256])
+    else:
+        hist = cv2.calcHist([frame], [0], None, [256], [0, 256])
+    return hist
+
+
+def calculate_brightness_contrast(frame):
+    if gray:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    brightness = np.mean(frame)
+    contrast = np.std(frame)
+    return brightness, contrast
+
+
+width = 500
+height = 800
 video_name = "Video"
+control_name = "Controls"
 cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(video_name, width, height)
-cv2.createTrackbar('Frame', video_name, 0, frame_count - 1, update_frame_idx)
-cv2.createTrackbar('Brightness', video_name, brightness, 100, lambda v: None)
-cv2.createTrackbar('Contrast', video_name, contrast, 100, lambda v: None)
-cv2.createTrackbar('Mode: 0=Gray, 1=Color', video_name, 0, 1, lambda v: None)
-cv2.createTrackbar('CLAHE Clip Limit', video_name, int(clip_limit * 10), 100, update_clip_limit)
-cv2.createTrackbar('CLAHE Tile Grid Size', video_name, tile_grid_size, 32, update_tile_grid_size)
-cv2.createTrackbar('Lightness', video_name, lightness, 100, lambda v: None)
+
+cv2.namedWindow(control_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(control_name, 500, 600)
+
+cv2.createTrackbar('Frame', control_name, 0, frame_count - 1, update_frame_idx)
+cv2.createTrackbar('Brightness', control_name, brightness, 100, lambda v: None)
+cv2.createTrackbar('Contrast', control_name, contrast, 100, lambda v: None)
+cv2.createTrackbar('Mode: 0=Gray, 1=Color', control_name, 0, 1, lambda v: None)
+cv2.createTrackbar('CLAHE Clip Limit', control_name, int(clip_limit * 10), 100, update_clip_limit)
+cv2.createTrackbar('CLAHE Tile Grid Size', control_name, tile_grid_size, 32, update_tile_grid_size)
+cv2.createTrackbar('Lightness', control_name, lightness, 100, lambda v: None)
 
 color_trackbars_created = False
 
@@ -109,21 +169,21 @@ while True:
     if not ret:
         break
 
-    brightness = cv2.getTrackbarPos('Brightness', video_name) - 50
-    contrast = cv2.getTrackbarPos('Contrast', video_name) - 50
-    gray = cv2.getTrackbarPos('Mode: 0=Gray, 1=Color', video_name) == 0
-    lightness = cv2.getTrackbarPos('Lightness', video_name) - 50
+    brightness = cv2.getTrackbarPos('Brightness', control_name) - 50
+    contrast = cv2.getTrackbarPos('Contrast', control_name) - 50
+    gray = cv2.getTrackbarPos('Mode: 0=Gray, 1=Color', control_name) == 0
+    lightness = cv2.getTrackbarPos('Lightness', control_name) - 50
 
     if not gray:
         if not color_trackbars_created:
-            cv2.createTrackbar('Vibrance', video_name, 14, 30, lambda v: None)
-            cv2.createTrackbar('Hue', video_name, 0, 180, lambda v: None)
-            cv2.createTrackbar('Saturation', video_name, 0, 100, lambda v: None)
+            cv2.createTrackbar('Vibrance', control_name, 14, 30, lambda v: None)
+            cv2.createTrackbar('Hue', control_name, 0, 180, lambda v: None)
+            cv2.createTrackbar('Saturation', control_name, 0, 100, lambda v: None)
             color_trackbars_created = True
 
-        vibrance = cv2.getTrackbarPos('Vibrance', video_name) / 10
-        hue = cv2.getTrackbarPos('Hue', video_name)
-        saturation = cv2.getTrackbarPos('Saturation', video_name) - 50
+        vibrance = cv2.getTrackbarPos('Vibrance', control_name) / 10
+        hue = cv2.getTrackbarPos('Hue', control_name)
+        saturation = cv2.getTrackbarPos('Saturation', control_name) - 50
     else:
         if color_trackbars_created:
             cv2.destroyWindow('Vibrance')
@@ -133,6 +193,16 @@ while True:
             color_trackbars_created = False
 
     adjusted_frame = apply_adjustments(frame)
+
+    hist = calculate_histogram(adjusted_frame)
+    brightness, contrast = calculate_brightness_contrast(adjusted_frame)
+    plt.clf()
+    plt.plot(hist)
+    plt.xlim([0, 256])
+    plt.xlabel('Pixel Intensity')
+    plt.ylabel('Frequency')
+    plt.title(f'Brightness: {brightness:.2f}, Contrast: {contrast:.2f}')
+    plt.pause(0.001)
 
     cv2.imshow(video_name, adjusted_frame)
 

@@ -20,12 +20,24 @@ if not cap.isOpened():
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 frame_idx = 0
-brightness = 30
-contrast = 44
-vibrance = 1.1
-hue = 0
-saturation = 0
-lightness = 99
+brightness = 65
+contrast = 28
+vibrance = 1.5
+hue = 5
+saturation = 29
+lightness = 29
+clip_limit = 5.0
+tile_grid_size = 12
+
+
+def update_clip_limit(val):
+    global clip_limit
+    clip_limit = max(1, val) / 10
+
+
+def update_tile_grid_size(val):
+    global tile_grid_size
+    tile_grid_size = max(1, val)
 
 
 def update_frame_idx(val):
@@ -37,7 +49,7 @@ def update_frame_idx(val):
 def apply_clahe(img):
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(12, 12))
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_grid_size, tile_grid_size))
     cl = clahe.apply(l)
     limg = cv2.merge((cl, a, b))
     return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
@@ -70,28 +82,38 @@ def apply_adjustments(frame):
     return adjusted_frame
 
 
+width = 500
+height = 800
 video_name = "Video"
+control_name = "Controls"
 cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(video_name, width, height)
-cv2.createTrackbar('Frame', video_name, 0, frame_count - 1, update_frame_idx)
-cv2.createTrackbar('Brightness', video_name, 50, 100, lambda v: None)
-cv2.createTrackbar('Contrast', video_name, 30, 100, lambda v: None)
-cv2.createTrackbar('Vibrance', video_name, 14, 30, lambda v: None)  # vibrance * 10 for trackbar
-cv2.createTrackbar('Hue', video_name, 0, 180, lambda v: None)
-cv2.createTrackbar('Saturation', video_name, 0, 100, lambda v: None)
-cv2.createTrackbar('Lightness', video_name, 0, 100, lambda v: None)
+
+cv2.namedWindow(control_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(control_name, 500, 600)
+cv2.namedWindow(video_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(video_name, width, height)
+cv2.createTrackbar('Frame', control_name, 0, frame_count - 1, update_frame_idx)
+cv2.createTrackbar('Brightness', control_name, brightness, 100, lambda v: None)
+cv2.createTrackbar('Contrast', control_name, contrast, 100, lambda v: None)
+cv2.createTrackbar('Vibrance', control_name, int(vibrance*10), 30, lambda v: None)  # vibrance * 10 for trackbar
+cv2.createTrackbar('Hue', control_name, hue, 180, lambda v: None)
+cv2.createTrackbar('Saturation', control_name, saturation, 100, lambda v: None)
+cv2.createTrackbar('Lightness', control_name, lightness, 100, lambda v: None)
+cv2.createTrackbar('CLAHE Clip Limit', control_name, int(clip_limit * 10), 100, update_clip_limit)
+cv2.createTrackbar('CLAHE Tile Grid Size', control_name, tile_grid_size, 42, update_tile_grid_size)
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
-    brightness = cv2.getTrackbarPos('Brightness', video_name) - 50
-    contrast = cv2.getTrackbarPos('Contrast', video_name) - 50
-    vibrance = cv2.getTrackbarPos('Vibrance', video_name) / 10
-    hue = cv2.getTrackbarPos('Hue', video_name)
-    saturation = cv2.getTrackbarPos('Saturation', video_name) - 50
-    lightness = cv2.getTrackbarPos('Lightness', video_name) - 50
+    brightness = cv2.getTrackbarPos('Brightness', control_name) - 50
+    contrast = cv2.getTrackbarPos('Contrast', control_name) - 50
+    vibrance = cv2.getTrackbarPos('Vibrance', control_name) / 10
+    hue = cv2.getTrackbarPos('Hue', control_name)
+    saturation = cv2.getTrackbarPos('Saturation', control_name) - 50
+    lightness = cv2.getTrackbarPos('Lightness', control_name) - 50
 
     adjusted_frame = apply_adjustments(frame)
 
