@@ -4,7 +4,7 @@ import numpy as np
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 3
+video_idx = 1
 video_path = os.path.join(video_folder, videos[video_idx])
 
 cap = cv2.VideoCapture(video_path)
@@ -13,13 +13,17 @@ if not cap.isOpened():
     exit()
 
 
-def apply_clahe(img, clip_limit=5.0, tile_grid_size=(14, 14)):
+def apply_clahe_color(img, clip_limit=5.4, tile_grid_size=(12, 12)):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
-    cl = clahe.apply(img)
-    return cl
+    cl = clahe.apply(l)
+    limg = cv2.merge((cl, a, b))
+    final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+    return final
 
 
-def automatic_brightness_contrast(image, clip_hist_percent=1):
+def automatic_brightness_contrast(image, clip_hist_percent=1, brightness_boost=0, contrast_boost=1):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
@@ -40,8 +44,9 @@ def automatic_brightness_contrast(image, clip_hist_percent=1):
     maximum_gray = hist_size - 1
     while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
         maximum_gray -= 1
-    alpha = 255 / (maximum_gray - minimum_gray)
-    beta = -minimum_gray * alpha
+
+    alpha = (255 / (maximum_gray - minimum_gray)) * contrast_boost
+    beta = -minimum_gray * alpha + brightness_boost
 
     auto_result = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
     return auto_result
@@ -52,12 +57,11 @@ while True:
     if not ret:
         break
 
-    adjusted_frame = automatic_brightness_contrast(frame)
-    gray_frame = cv2.cvtColor(adjusted_frame, cv2.COLOR_BGR2GRAY)
-    clahe_frame = apply_clahe(gray_frame)
-    clahe_frame_bgr = cv2.cvtColor(clahe_frame, cv2.COLOR_GRAY2BGR)
+    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=10, contrast_boost=1)
+    clahe_frame = apply_clahe_color(adjusted_frame)
 
-    cv2.imshow("Adjusted Frame", clahe_frame_bgr)
+    cv2.imshow("Original Frame", frame)
+    cv2.imshow("Adjusted Frame", clahe_frame)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q') or key == 27:
