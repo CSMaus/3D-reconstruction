@@ -3,7 +3,7 @@ import cv2
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 1
+video_idx = 3
 video_path = os.path.join(video_folder, videos[video_idx])
 
 cap = cv2.VideoCapture(video_path)
@@ -12,7 +12,7 @@ if not cap.isOpened():
     exit()
 
 
-def apply_clahe_color(img, clip_limit=4.1, tile_grid_size=(15, 15)):
+def apply_clahe_color(img, clip_limit=2.7, tile_grid_size=(35, 35)):
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
@@ -56,7 +56,7 @@ while True:
     if not ret:
         break
 
-    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=0, contrast_boost=1)
+    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=5, contrast_boost=1)
     clahe_frame = apply_clahe_color(adjusted_frame)
 
     cv2.imshow("Original Frame", frame)
