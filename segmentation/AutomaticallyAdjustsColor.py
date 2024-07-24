@@ -1,6 +1,5 @@
 import os
 import cv2
-import numpy as np
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
@@ -13,7 +12,7 @@ if not cap.isOpened():
     exit()
 
 
-def apply_clahe_color(img, clip_limit=5.4, tile_grid_size=(12, 12)):
+def apply_clahe_color(img, clip_limit=4.1, tile_grid_size=(15, 15)):
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
@@ -35,7 +34,7 @@ def automatic_brightness_contrast(image, clip_hist_percent=1, brightness_boost=0
 
     maximum = accumulator[-1]
     clip_hist_percent *= (maximum / 100.0)
-    clip_hist_percent /= 2.0
+    clip_hist_percent /= 10.0  # change this for better adjustment
 
     minimum_gray = 0
     while accumulator[minimum_gray] < clip_hist_percent:
@@ -57,7 +56,7 @@ while True:
     if not ret:
         break
 
-    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=10, contrast_boost=1)
+    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=0, contrast_boost=1)
     clahe_frame = apply_clahe_color(adjusted_frame)
 
     cv2.imshow("Original Frame", frame)
