@@ -7,7 +7,7 @@ import numpy as np
 
 video_folder = "Data/Weld_VIdeo/"
 videos = os.listdir(os.path.join(video_folder))
-video_idx = 2
+video_idx = 0
 video_path = os.path.join(video_folder, videos[video_idx])
 width = 400
 height = 1400
