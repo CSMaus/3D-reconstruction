@@ -1,4 +1,6 @@
 import os
+import time
+
 import cv2
 import numpy as np
 
@@ -58,10 +60,12 @@ while True:
     clahe_frame_bgr = cv2.cvtColor(clahe_frame, cv2.COLOR_GRAY2BGR)
 
     cv2.imshow("Adjusted Frame", clahe_frame_bgr)
+    cv2.imshow("Original Frame", frame)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q') or key == 27:
         break
+    time.sleep(1 / 60)
 
 cap.release()
 cv2.destroyAllWindows()

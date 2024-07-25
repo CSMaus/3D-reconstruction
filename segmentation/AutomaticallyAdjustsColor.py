@@ -1,4 +1,6 @@
 import os
+import time
+
 import cv2
 
 video_folder = "Data/Weld_VIdeo/"
@@ -56,7 +58,7 @@ while True:
     if not ret:
         break
 
-    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=5, contrast_boost=1)
+    adjusted_frame = automatic_brightness_contrast(frame, brightness_boost=15, contrast_boost=1)
     clahe_frame = apply_clahe_color(adjusted_frame)
 
     cv2.imshow("Original Frame", frame)
@@ -65,6 +67,7 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q') or key == 27:
         break
+    time.sleep(1 / 60)
 
 cap.release()
 cv2.destroyAllWindows()
