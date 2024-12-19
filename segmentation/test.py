@@ -215,3 +215,6 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+
+python inference.py --image_dir 'D:\ML_DL_AI_stuff\!!DoosanWelding\ds_original_croped' --output_dir 'D:\ML_DL_AI_stuff\!!DoosanWelding\resized'
